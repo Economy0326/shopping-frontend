@@ -8,7 +8,6 @@ import { useState } from "react";
 export default function App() {
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [isLoggedIn, setIsLoggedIn] = useState(!!username);
-  const [darkMode, setDarkMode] = useState(false);
 
   return (
     <Routes>
@@ -23,14 +22,12 @@ export default function App() {
             }}
             isLoggedIn={isLoggedIn}
             setIsLoggedIn={setIsLoggedIn}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
           />
         }
       />
-      <Route path="/product/:id" element={<ProductPage darkMode={darkMode} />} />
-      <Route path="/cart" element={<CartPage darkMode={darkMode} />} />
-      <Route path="/checkout" element={<CheckoutPage darkMode={darkMode} />} />
+        <Route path="/product/:id" element={<ProductPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
     </Routes>
   );
 }
