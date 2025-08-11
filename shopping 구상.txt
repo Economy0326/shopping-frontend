@@ -1,0 +1,277 @@
+1. 메인 페이지
+-> 쇼핑몰 이름
+-> 상품별 카테고리
+-> 로그인
+-> 검색창
+-> 메인 사진
+-> 할인 상품(이벤트 상품), 신상품 (생략 가능)
+-> 현재 순위 (생략 가능)
+-> 카카오톡 채널 연결 (생략 가능)
+-> 회사 소개, C/S 하는법(시간+전화번호), 은행 계좌번호, 교환/반품 주소, 100개 이하 일 시 우체국 이용
+-> 홈으로/회사 소개/ 이용약관/ 개인정보보호/ 이용안내/ 고객센터/ 자주 묻는 질문 카테고리만들기
+-> 인스타그램 홍보 (생략 가능)
+-> 룩북칸
+
+2. 로그인 페이지 (로그인, 비밀번호 모두 만들기 + 보안 공부)
+-> 바로 전 페이지로 돌아가기
+-> 메인으로 돌아가기
+-> 회원가입 하는법 설명 (복잡하면 생략가능)
+-> 네이버/카카오로 회원가입하기
+-> 기존 회원 OR 비회원 클릭 가능한 태그
+-> 아이디/ 비밀번호 인풋 만들기
+-> 아이디/ 비밀번호 찾기 파트 만들기
+
+2-2. 회원가입 페이지
+
+3. 장바구니 페이지 (마이페이지)
+-> 국내배송상품, 해외배송상품 파트 따로 나누기
+-> (주문내역) 이미지, 상품정보, 판매가, 수량, 적립금, 배송구분, 배송비, 합계, 선택(주문하기, 관심상품등록, 삭제)
+-> 총 상품금액 + 총 배송비 => 최종 금액 알려주는 파트
+-> 결제하기 버튼
+-> 전체상품주문/선택상품주문/쇼핑계속하기 파트 나누기
+-> 이용안내 ( 장바구니 이용하는법, 무이자할부 이용하는법) (생략 가능)
+
+4. 결제 페이지
+-> 장바구니 (주문내역) 그대로 가져오기
+-> (배송 정보) 배송지 선택[회원 정보와 동일, 새로운 배송지], 받으시는 분, 주소, 휴대전화, 이메일, 배송메세지
+-> 결제 예정금액, 할인 금액, 총 결제 금액
+-> 결제 수단 (무통장입금, 신용카드, 계좌이체, 가상계좌)
+-> 무통장입금 -> 입금자명, 입금은행, 현금영수증
+-> 신용카드 -> 카드선택, 할부기간, 결제안내, 결제 대행 동의
+-> 계좌이체 -> 예금주명, 현금영수증
+-> 무이자 할부 이용안내
+-> 이용 안내(세금계산서 발행, 부가가치세법 변경에 따른 신용카드매출전표, 현금영수증)
+
+5. 상품 상세설명 페이지
+-> 판매가격, 컬러, 사이즈 선택할 수 있게
+-> 상품에 대한 간단한 설명 (소재, 모델 스펙, 상품 특징)
+-> 추가구성상품
+-> 바로구매하기, 장바구니 넣기
+-> 상품에 대한 확대 사진
+-> 상품에 대한 자세한 설명과 함께 다른 방향에서의 사진들 추가 삽입
+-> 사이즈 정보(M, L 일 때 -> 어깨 가슴 소매 등등)
+-> 착용 정보(계절감, 신축성, 무게감, 비침 등등) 
+-> 상세 정보(소재, 세탁방법, 색상, 담당자 번호) 
+-> 주의 사항(환불 불가 사유)
+-> 사용 후기(리뷰)
+-> Q&A
+
+6. 고객센터 페이지
+->(공지사항, 상품 문의, 배송 문의, 입금 결제 확인, 자주묻는질문FAQ) 파트별로 나눠서 보기 쉽게 하기
+
+7. 이용약관 페이지
+
+8. 개인정보 관련 페이지
+
+9. 이용 안내 페이지
+-> 회원가입 안내
+-> 주문 안내
+-> 결제 안내
+-> 배송 안내
+-> 교환/반품 안내
+-> 기타 안내
+
+10. 카테고리별 페이지
+-> 종류가 다양할 경우 새로운 페이지로 만들어서 다시 분류를 하고, 
+적을 경우는 페이지를 새로 만들진 않고 그대로 사용
+
+11. 결제 후 시스템 페이지
+-> 택배 어디까지 왔는 지
+-> 도착 예정일
+-> 교환/환불
+
+{/* 제목 */}
+        <header className="flex justify-between items-center mb-4">
+          <h1 
+            onClick={() => {
+              setIsCategoryClicked(false); //메인 돌아가기
+              setSearchTerm("");
+              setPriceFilter(null);
+            }}
+            className="text-4xl font-bold font-vhs text-black drop-shadow-[0_0_2px_#00f] tracking-widest"
+          >
+            🛍️ Gun&Sung
+          </h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/cart")}
+              className="border rounded px-2 py-1 text-2xl"
+            >
+              🛒
+            </button>
+            <button
+              onClick={() => {
+                if (isLoggedIn) {
+                  setIsLoggedIn(false);
+                  toast.info("로그아웃 완료! 저희 다음에도 보는거죠?");
+                } else {
+                  setShowLoginModal(true);
+                }
+              }}
+              className="border rounded px-2 py-1 text-2xl"
+            >
+              {isLoggedIn ? "현실로 돌아가기 🏃" : "들어갈래요 🙋"}
+            </button>
+          </div>
+        </header>
+
+<div className="p-4 w-full font-sans">
+          <main>
+          {/* 카테고리 */}
+            <div className="grid grid-cols-4 gap-2 mb-4 text-2xl font-medium">
+              {["tops", "bottoms", "hats", "accessories"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setCategory(cat);
+                    setIsCategoryClicked(true);
+                  }}
+                  className={`py-2 rounded-full ${
+                    category === cat
+                      ? "bg-black text-white shadow"
+                      : "bg-gray-200 text-gray-1000"
+                  }`}
+                >
+                  {cat === "tops"
+                    ? "상의"
+                    : cat === "bottoms"
+                    ? "하의"
+                    : cat === "hats"
+                    ? "모자"
+                    : "악세사리"}
+                </button>
+              ))}
+            </div>
+          </main>
+
+
+{/* 상품카드 */}
+            <div className="w-full px-4">
+              {isCategoryClicked ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full">
+                  {sortedProducts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="border rounded-xl overflow-hidden shadow bg-white transition transform hover:scale-[1.02] hover:-rotate-1 hover:shadow-xl duration-300"
+                    >
+                      <div
+                        className="w-full aspect-square bg-gray-100 cursor-pointer overflow-hidden"
+                        onClick={() =>
+                          navigate(`/product/${p.id}`, { state: { product: p } })
+                        }
+                      >
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="p-2 flex flex-col justify-between min-h-[6rem]">
+                        <p className="text-3xl font-semibold truncate">{p.name}</p>
+                        <p className="text-yellow-500 text-2xl flex items-center w-full">
+                          {/*toFixed 함수는 반올림 함수 */}
+                          {renderStars(p.rating)} {p.rating.toFixed(1)}
+                          <span className="text-black font-bold ml-auto">{getRatingReaction(p.rating)}</span>
+                        </p>
+                        <div className="flex justify-between items-center">
+                          <p className="text-2xl text-gray-500">{p.price}</p>
+                          <button
+                            onClick={() => {
+                              if (!p.soldOut) {
+                                addToCart(p);
+                                toast.success(
+                                  `${p.name} 담았습니다! 결제까지 가보실까요?`
+                                );
+                              }
+                            }}
+                            disabled={p.soldOut}
+                            className={`text-2xl border border-black rounded px-2 py-1 transition ${
+                              p.soldOut
+                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                : "bg-white text-black hover:bg-black hover:text-white"
+                            }`}
+                          >
+                            {p.soldOut ? "😭 품절..." : "🛒 담기!"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="w-full h-[calc(100vh-300px)] flex items-center justify-center">
+                <img
+                  src ="/mood/funny-main.gif"
+                  alt ="Gun&Sung 메인 짤"
+                  className="w-full max-w-3xl object-contain"
+                />
+              </div>
+            )}
+            </div>
+          </footer>
+
+<main>
+          <div className="w-full h-[calc(100vh-300px)] flex items-center justify-center">
+            <img
+                  src ="/mood/brand-write.png"
+                  alt ="비밀"
+                  className="w-full max-w-3xl object-contain"
+            />
+          </div>
+        </main>
+        {showBox ? (
+          <div className="fixed bottom-6 right-6 bg-white text-black rounded-xl border-2 border-red-500 shadow-2xl w-[520px] sm:w-[720px] h-[300px] sm:h-[400px] p-6 sm:p-8 z-50 flex flex-col justify-between">
+            {/* 닫기 버튼 */}
+            <p 
+              className="text-sm text-right text-gray-500 hover:text-red-500 cursor-pointer"
+              onClick={() => setShowBox(false)}
+            >
+              FUCK OFF
+            </p>
+
+            {/* 메인 메세지 */}
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <p className="text-6xl sm:text-8xl font-bold text-center mb-10">이걸 찾네 ㅋㅋ</p>
+              <p className="text-4xl sm:text-6xl font-bold text-center">정경재 개못생김</p>
+            </div>
+          </div>
+        ) : (
+          <p className="fixed bottom-6 right-6 text-sm text-gray-400">삭제됨</p>
+        )}
+
+        {/* 오버레이 */}
+        {showMenu && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30 z-40"
+            onClick={() => setShowMenu(false)}
+          />
+        )}
+        {/* 메뉴창 */}
+        {showMenu && (
+          <div className="fixed top-0 left-0 w-full sm:w-2/5 md:w-1/5 lg:w-1/5 h-full bg-red-500 text-white shadow-lg z-50 p-4 transition-transform">
+            <button onClick={() => setShowMenu(false)} className="mb-4 ml-[1px]">
+              GET OUT
+            </button>
+            <nav className="text-4xl font-bold">
+              <ul className="space-y-1 mb-12">
+                <li><a href="#">ALL</a></li>
+              </ul>
+              <div className="ml-3">
+                <ul className="space-y-1 mb-12">
+                  <li><a href="#">OUTER</a></li>
+                  <li><a href="#">TOP</a></li>
+                  <li><a href="#">BOTTOM</a></li>
+                  <li><a href="#">ACC</a></li>
+                  <li><a href="#">FOR ARTIST</a></li>
+                </ul>
+              </div>
+              <ul className="space-y-1 mb-12">
+                <li><a href="#">LOOK</a></li>
+              </ul>
+
+              <ul className="space-y-1">
+                <li><a href="#">로고</a></li>
+              </ul>
+            </nav>
+          </div>
+        )}

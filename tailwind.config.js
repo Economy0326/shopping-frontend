@@ -3,7 +3,12 @@ module.exports = {
   darkMode: 'class',
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        vhs: ['"Press Start 2P"', 'monospace'],
+        pretendard: ['Pretendard', 'sans-serif']
+      },
+    },
   },
   plugins: [],
 }
