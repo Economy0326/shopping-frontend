@@ -9,7 +9,7 @@ export default function CategoryPage() {
 
   const filtered =
     categoryName === "all"
-      ? products
+      ? products.filter((p) => p.category !== "look")  
       : products.filter((p) => p.category === categoryName);
 
   return (
@@ -39,7 +39,19 @@ export default function CategoryPage() {
 
       <main>
         {filtered.length === 0 ? (
-          <h1 className="p-6">업소용</h1>
+          <div className="min-h-[50vh] grid place-items-center">
+            <img
+              src="/mood/nothing.png"
+              alt="nothing"
+              className="
+                w-[170px] md:w-[370px] xl:w-[470px] object-contain
+
+                -translate-x-4 -translate-y-20
+                md:-translate-x-10 md:-translate-y-10
+                xl:-translate-x-8 xl:-translate-y-20
+              "
+            />
+          </div>
         ) : (
           <div className="p-6 max-w-7xl mx-auto">
             <ProductGrid products={filtered} />

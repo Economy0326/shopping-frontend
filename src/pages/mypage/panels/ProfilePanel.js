@@ -2,10 +2,10 @@ export default function ProfilePanel({ username }) {
   return (
     <div className="max-w-lg">
       <h2 className="text-lg font-semibold mb-4">내 정보 수정</h2>
-      <div className="space-y-3">
+      <div className="space-y-3 border rounded p-4"> {/* 테두리/라운드 통일 */}
         <label className="block">
           <span className="text-sm">아이디</span>
-          <input className="w-full border rounded p-3 mt-1" value={username} disabled />
+          <input className="w-full border rounded p-3 mt-1 bg-gray-50" value={username} disabled />
         </label>
         <label className="block">
           <span className="text-sm">이름</span>

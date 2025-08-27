@@ -23,7 +23,7 @@ function SecretPage() {
           </p>
           <div className="flex-1 flex flex-col items-center justify-center">
             <p className="text-6xl sm:text-8xl font-bold text-center mb-10">이걸 찾네 ㅋㅋ</p>
-            <p className="text-4xl sm:text-6xl font-bold text-center">정경재 개못생김</p>
+            <p className="text-4xl sm:text-5xl font-bold text-center">해킹당하신 거 아니에요!</p>
           </div>
         </div>
       ) : (

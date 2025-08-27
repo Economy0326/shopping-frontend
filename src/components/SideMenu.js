@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export default function SideMenu({ setShowMenu }) {
   return (
-    <div className="fixed top-0 left-0 w-full sm:w-2/5 md:w-1/5 lg:w-1/5 h-full bg-red-500 text-white shadow-lg z-50 p-4 transition-transform">
+    <div className="fixed top-0 left-0 w-full sm:w-2/5 md:w-1/3 lg:w-1/5 h-full bg-red-500 text-white shadow-lg z-50 p-4 transition-transform">
       <button onClick={() => setShowMenu(false)} className="mb-4 ml-[1px]">
         <h2 className="text-sm font-bold">GET OUT</h2>
       </button>

@@ -29,6 +29,9 @@ function Header({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
 
         {/* 마이페이지 + 로그인 + 장바구니 */}
         <div className="flex gap-4">
+          <button onClick={() => navigate("/qna")}>
+            Q&A
+          </button>
           <button onClick={() => navigate("/mypage")}>
             MY PAGE
           </button>

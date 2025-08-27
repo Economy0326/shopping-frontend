@@ -18,13 +18,25 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
     setUsername("");
     localStorage.removeItem("username");
   };
+  
+  const navBtn =
+    "focus:outline-none focus-visible:outline-none active:outline-none " +
+    "focus:ring-0 ring-0 border-0 outline-none select-none";
 
+  const tapHighlightNone = { WebkitTapHighlightColor: "transparent" };
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 h-16 mb-4">
+      <header className="header-nav flex items-center justify-between px-4 h-16 mb-4">
         {/* 메뉴 */}
-        <button onClick={() => setShowMenu(true)}>MENU</button>
+        <button
+          type="button"
+          onClick={() => setShowMenu(true)}
+          className={navBtn}
+          style={tapHighlightNone}
+        >
+          MENU
+        </button>
 
         {/* 공통 이미지 */}
         <div className="fixed top-0 left-0 right-0 bg-white h-16 px-4 flex items-center justify-between relative">
@@ -37,18 +49,39 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
 
         {/* Q&A페이지 + 마이페이지 + 로그인 + 장바구니 */}
         <div className="flex gap-4">
-          <button onClick={() => navigate("/q&a")}>
+          <button
+            type="button"
+            onClick={() => navigate("/qna")}
+            className={navBtn}
+            style={tapHighlightNone}
+          >
             Q&A
           </button>
-          <button onClick={() => navigate("/mypage")}>
+
+          <button
+            type="button"
+            onClick={() => navigate("/mypage")}
+            className={navBtn}
+            style={tapHighlightNone}
+          >
             MY PAGE
           </button>
+
           <button
+            type="button"
             onClick={isLoggedIn ? handleLogout : () => setShowLoginModal(true)}
+            className={navBtn}
+            style={tapHighlightNone}
           >
             {isLoggedIn ? "LOGOUT" : "LOGIN"}
           </button>
-          <button onClick={() => navigate("/cart")}>
+
+          <button
+            type="button"
+            onClick={() => navigate("/cart")}
+            className={navBtn}
+            style={tapHighlightNone}
+          >
             BAG
           </button>
         </div>

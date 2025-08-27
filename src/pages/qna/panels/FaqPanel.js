@@ -13,14 +13,14 @@ export default function FaqPanel() {
         {seedFaqs.map((f, idx) => (
           <li key={idx} className="p-3">
             <button
-              className="w-full text-left font-medium flex justify-between"
+              className="w-full text-left font-medium flex justify-between outline-none ring-0 [appearance:none]"
               onClick={() => setOpen(open === idx ? null : idx)}
             >
               {f.q}
               <span>{open === idx ? "−" : "+"}</span>
             </button>
             {open === idx && (
-              <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{f.a}</div>
+              <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap outline-none ring-0 [appearance:none]">{f.a}</div>
             )}
           </li>
         ))}

@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+// src/pages/App.js
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { useCallback, useState } from "react";
 
 import Layout from "../components/Layout";
 import LayoutWithImage from "../components/LayoutWithImage";
@@ -11,152 +12,161 @@ import CheckoutPage from "./CheckoutPage";
 import SecretPage from "./SecretPage";
 import CategoryPage from "./CategoryPage";
 import LookPage from "./LookPage";
+import MyOrdersPage from "./MyOrderPage";
 
 // 마이페이지 + Q&A
 import MyPageLayout from "./mypage/MyPageLayout";
-import QnaPage from "./qna/QnaPage";
+import QnaTabs from "./qna/QnaTabs";
+import AskListPage from "./qna/AskListPage"; 
+import AskWritePage from "./qna/AskWritePage";
 
+// 주문 페이지
+import { CartProvider } from "../context/CartContext";
+import { OrderProvider } from "../context/OrderContext";
+import OrderDetailPage from "./OrderDetailPage"; 
+
+// 관리자 페이지
+import AdminGuard from "./admin/AdminGuard";
+import AdminOrdersPage from "./admin/AdminOrdersPage";
+
+function WithLayout(props) {
+  return (
+    <Layout {...props}>
+      <Outlet />
+    </Layout>
+  );
+}
+
+function WithImageLayout(props) {
+  return (
+    <LayoutWithImage {...props}>
+      <Outlet />
+    </LayoutWithImage>
+  );
+}
 
 export default function App() {
-  const [username, setUsername] = useState(localStorage.getItem("username") || "");
-  const [isLoggedIn, setIsLoggedIn] = useState(!!username);
+  const initial = localStorage.getItem("username") || "";
+  const [username, setUsername] = useState(initial);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!initial);
 
-  const updateUsername = (name) => {
+  const updateUsername = useCallback((name) => {
     setUsername(name);
     localStorage.setItem("username", name);
-    setIsLoggedIn(!!name); //name 있으면 true, 없으면 false
-  };
+    setIsLoggedIn(!!name);
+  }, []);
+
+  const currentUserId = username || "guest";
+  const isAdmin = username === "admin"; // 필요 시 로직 교체
 
   return (
-    <Routes>
-      {/* 메인 + 시크릿 */}
-      <Route
-        path="/"
-        element={
-          <Layout
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
+    <OrderProvider>
+      {/* 전역 장바구니 컨텍스트 */}
+      <CartProvider username={username}>
+        <Routes>
+          {/* 메인 + 비밀 */}
+          <Route
+            element={
+              <WithLayout
+                username={username}
+                setUsername={updateUsername}
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+              />
+            }
           >
-            <Homepage />
-          </Layout>
-        }
-      />
-      <Route
-        path="/secret"
-        element={
-          <Layout
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <SecretPage />
-          </Layout>
-        }
-      />
+            <Route index element={<Homepage />} />
+            <Route path="secret" element={<SecretPage />} />
+          </Route>
 
-      {/* 나머지 */}
-      <Route
-        path="/product/:id"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
+          {/* 그 외 나머지 */}
+          <Route
+            element={
+              <WithImageLayout
+                username={username}
+                setUsername={updateUsername}
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+              />
+            }
           >
-            <ProductPage />
-          </LayoutWithImage>
-        }
-      />
-      <Route
-        path="/cart"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <CartPage />
-          </LayoutWithImage>
-        }
-      />
-      <Route
-        path="/checkout"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <CheckoutPage />
-          </LayoutWithImage>
-        }
-      />
-      <Route
-        path="/category/:categoryName"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <CategoryPage />
-          </LayoutWithImage>
-        }
-      />
-      <Route
-        path="/look"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <LookPage />
-          </LayoutWithImage>
-        }
-      />
+            <Route path="product/:id" element={<ProductPage />} />
+            <Route path="cart" element={<CartPage />} />
 
-      {/* 마이페이지: 단일 컴포넌트 */}
-      <Route
-        path="/mypage"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <MyPageLayout
-              isLoggedIn={isLoggedIn}
-              username={username}
-              onLogout={() => updateUsername("")}
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders" element={<MyOrdersPage />} />
+            <Route path="/order/:id" element={<OrderDetailPage />} />
+
+            <Route path="category/:categoryName" element={<CategoryPage />} />
+            <Route path="look" element={<LookPage />} />
+            
+            <Route
+              path="mypage"
+              element={
+                <MyPageLayout
+                  isLoggedIn={isLoggedIn}
+                  username={username}
+                  onLogout={() => updateUsername("")}
+                />
+              }
             />
-          </LayoutWithImage>
-        }
-      />
 
-      {/* Q&A: 단일 컴포넌트 */}
-      <Route
-        path="/q&a"
-        element={
-          <LayoutWithImage
-            username={username}
-            setUsername={updateUsername}
-            isLoggedIn={isLoggedIn}
-            setIsLoggedIn={setIsLoggedIn}
-          >
-            <QnaPage isLoggedIn={isLoggedIn} username={username} />
-          </LayoutWithImage>
-        }
-      />
-    </Routes>
+            <Route
+              path="qna"
+              element={<QnaTabs
+                        isLoggedIn={isLoggedIn} 
+                        username={username}
+                        currentUserId={currentUserId}
+                        isAdmin={isAdmin}
+                />
+              }
+            />
+
+            <Route
+              path="qna/ask"
+              element={
+                <AskListPage
+                  currentUserId={currentUserId}
+                  currentUserName={username}
+                  isAdmin={isAdmin}
+                />
+              }
+            />
+            <Route
+              path="qna/ask/:id"
+              element={
+                <AskListPage
+                  currentUserId={currentUserId}
+                  currentUserName={username}
+                  isAdmin={isAdmin}
+                />
+              }
+            />
+            <Route
+              path="qna/ask/write"
+              element={
+                <AskWritePage
+                  isLoggedIn={isLoggedIn}
+                  username={username}
+                  userId={currentUserId}
+                />
+              }
+            />    
+
+            <Route
+              path="admin/orders"
+              element={
+                <AdminGuard>
+                  <AdminOrdersPage />
+                </AdminGuard>
+              }
+            />
+          </Route>
+
+          {/* 존재하지 않는 경로 → 홈으로 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </CartProvider>
+    </OrderProvider>
   );
 }

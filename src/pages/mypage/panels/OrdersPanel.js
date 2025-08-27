@@ -1,22 +1,52 @@
-export default function OrdersPanel() {
-  // TODO: 서버 연동 시 fetch로 대체
-  const orders = [
-    { id: "O20250801-001", date: "2025-08-01", total: 69000, status: "배송완료" },
-    { id: "O20250725-002", date: "2025-07-25", total: 129000, status: "배송중" },
+import { Link } from "react-router-dom";
+import { PanelShell, EmptyState, OrdersTable } from "./_shared";
+import { useOrders } from "../../../context/OrderContext";
+
+export default function OrdersPanel({ username }) {
+  const { orders } = useOrders();
+  const me = username || "guest";
+  const myOrders = (orders || []).filter(
+    (o) => (o.customer?.username || "guest") === me
+  );
+
+  if (!myOrders.length) {
+    return (
+      <>
+        <h2 className="text-lg font-semibold mb-4">주문내역</h2>
+        <EmptyState>아직 주문이 없습니다.</EmptyState>
+      </>
+    );
+  }
+
+  const cols = [
+    { title: "주문번호", width: 200 },
+    { title: "주문일",   width: 180 },
+    { title: "상태",     width: 120 },
+    { title: "금액",     width: 120 },
+    { title: "상세",     width: 96  },
   ];
 
+  const rows = myOrders.map((o) => (
+    <tr key={o.id} className="border-t">
+      <td className="p-2 font-mono truncate">{o.id}</td>
+      <td className="p-2 whitespace-nowrap">
+        {o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}
+      </td>
+      <td className="p-2 text-center whitespace-nowrap">{o.status || "-"}</td>
+      <td className="p-2 text-right whitespace-nowrap">
+        {(o.total || 0).toLocaleString()}원
+      </td>
+      <td className="p-2 text-center">
+        <Link className="text-blue-600 underline" to={`/order/${o.id}`}>
+          보기
+        </Link>
+      </td>
+    </tr>
+  ));
+
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-4">주문내역</h2>
-      <ul className="divide-y border rounded">
-        {orders.map(o => (
-          <li key={o.id} className="p-4">
-            <div className="font-medium">{o.id}</div>
-            <div className="text-sm text-gray-600">{o.date} · {o.status}</div>
-            <div className="text-sm mt-1">{o.total.toLocaleString()}원</div>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <PanelShell title="주문내역">
+      <OrdersTable columns={cols} rows={rows} />
+    </PanelShell>
   );
 }

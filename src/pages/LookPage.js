@@ -6,16 +6,20 @@ export default function LookPage() {
 
   return (
     <>
-      <header className="bg-white p-6 text-center">
-        <h1 className="text-3xl xl:text-5xl font-bold text-red-500 uppercase">LOOK</h1>
+      {/* 제목 */}
+      <header className="bg-white py-8 text-center">
+        <h1 className="text-3xl xl:text-5xl font-bold text-red-500 uppercase tracking-wide">
+          LOOK
+        </h1>
       </header>
 
+      {/* 메인 */}
       <main className="p-6 max-w-7xl mx-auto">
         {lookProducts.length > 0 ? (
           <ProductGrid products={lookProducts} />
         ) : (
-          <div className="text-center text-gray-500">
-            업소용
+          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+            <p>업소용</p>
           </div>
         )}
       </main>
