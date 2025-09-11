@@ -2,7 +2,11 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useOrders } from "../../context/OrderContext";
 
-const STATUSES = ["입금대기", "입금확인", "준비중", "발송완료", "배송완료"];
+import { AdminOrdersAPI } from "../../api/admin/orders";
+import { CARRIERS, LABEL_TO_STATUS } from "../../lib/constants";
+
+// 드롭다운에서 보여줄 라벨(표시용)
+const STATUS_LABELS = ["입금대기", "입금확인", "준비중", "발송완료", "배송완료"];
 
 export default function AdminOrdersPage() {
   const { orders, updateOrder } = useOrders();
@@ -18,13 +22,62 @@ export default function AdminOrdersPage() {
     );
   }, [orders, q]);
 
-  const onChangeStatus = async (id, status) => {
-    updateOrder(id, { status });
+  // 상태 변경 → 전용 운영 액션 호출(서버 상태머신을 따른다)
+  const onChangeStatus = async (id, nextLabel) => {
+    try {
+      const next = LABEL_TO_STATUS[nextLabel];
+      if (!next) {
+        alert("알 수 없는 라벨입니다.");
+        return;
+      }
+
+      const order = orders.find(x => x.id === id);
+      const approvedAmount =
+        order?.amounts?.grandTotal ?? order?.total ?? undefined;
+
+      // 1) 입금확인은 반드시 depositConfirm 사용
+      if (next === "DEPOSIT_CONFIRMED") {
+        await AdminOrdersAPI.depositConfirm(id, {
+          // 필요하면 noticeId 입력을 붙여주세요.
+          approvedAmount,
+          memo: "관리자 승인",
+        });
+        // UI 업데이트(라벨 기준)
+        updateOrder(id, { status: nextLabel });
+        return;
+      }
+
+      // 2) 발송완료는 ship 액션으로만 (송장 입력이 트리거)
+      if (next === "SHIPPED") {
+        alert("송장번호 입력 후 자동으로 발송등록 됩니다.");
+        return; // onSetTracking에서 처리
+      }
+
+      // 3) 그 외(준비중/배송완료 등)는 서버에서 자동 전이를 유도하고,
+      //    임의 PATCH로 바꾸지 않는 것을 권장합니다.
+      //    정말 필요하면 전용 진행 API를 추가로 정의하세요.
+    } catch (e) {
+      console.error(e);
+      alert("상태 변경 중 오류가 발생했습니다.");
+    }
   };
 
+  // 송장 입력 blur → 발송등록(ship)
   const onSetTracking = async (id, trackingNo) => {
-    const shipping = { ...(orders.find(o=>o.id===id)?.shipping || {}), trackingNo };
-    updateOrder(id, { shipping });
+    try {
+      if (!trackingNo) return;
+      await AdminOrdersAPI.ship(id, {
+        carrier: "KOREA_POST",
+        trackingNo,
+        shippedAt: new Date().toISOString(),
+      });
+      // UI 업데이트: 배송정보 + 상태 라벨을 '발송완료'로
+      const shipping = { ...(orders.find(o => o.id === id)?.shipping || {}), trackingNo, carrier: "KOREA_POST" };
+      updateOrder(id, { shipping, status: "발송완료" });
+    } catch (e) {
+      console.error(e);
+      alert("발송 등록 중 오류가 발생했습니다.");
+    }
   };
 
   return (
@@ -69,7 +122,7 @@ export default function AdminOrdersPage() {
                     value={o.status}
                     onChange={e=>onChangeStatus(o.id, e.target.value)}
                   >
-                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    {STATUS_LABELS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
                 <td className="p-2 align-top">
@@ -83,7 +136,7 @@ export default function AdminOrdersPage() {
                     {o.shipping?.trackingNo && (
                       <a
                         className="text-blue-600 underline whitespace-nowrap"
-                        href={`https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${encodeURIComponent(o.shipping.trackingNo)}`}
+                        href={CARRIERS.KOREA_POST.trackUrl(o.shipping.trackingNo)}
                         target="_blank" rel="noreferrer"
                       >
                         조회

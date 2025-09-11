@@ -7,7 +7,7 @@ export default function OrderDetailPage() {
   const { state } = useLocation();
   const justCreated = state?.justCreated;
 
-  const order = getOrder(id); // ✅ 나중에 API 모드로 바뀌어도 시그니처 유지
+  const order = getOrder(id); // 나중에 API 모드로 바뀌어도 시그니처 유지
   if (!order) {
     return (
       <main className="max-w-3xl mx-auto p-6">

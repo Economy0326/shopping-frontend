@@ -20,13 +20,13 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
       authorName: username || "guest",
       password,
     });
-    nav("/qna/ask");
+    nav("/qna?tab=ask", { replace: true });
   };
 
   return (
     <section className="py-6 grid md:grid-cols-5 gap-6">
       {/* 왼쪽 안내 */}
-      <aside className="hidden md:block md:col-span-2 border rounded p-4 text-sm text-gray-600">
+      <aside className="hidden md:block md:col-span-2 p-4 text-sm text-gray-600">
         <div className="font-semibold mb-2">무.물.보 안내</div>
         <ul className="list-disc pl-5 space-y-1">
           <li>모든 글은 비밀글로 등록됩니다.</li>
@@ -36,7 +36,7 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
       </aside>
 
       {/* 오른쪽 폼 */}
-      <article className="md:col-span-3 md:col-start-3 border rounded p-4">
+      <article className="md:col-span-3 md:col-start-3 p-4">
         <h1 className="font-semibold mb-3">무.물.보 작성</h1>
         {!isLoggedIn && (
           <div className="text-sm text-red-500 mb-2">
@@ -80,7 +80,7 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
           </button>
           <button
             className="px-3 py-2 border rounded"
-            onClick={() => nav("/qna/ask")}
+            onClick={() => nav("/qna?tab=ask")}
           >
             취소
           </button>

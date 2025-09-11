@@ -21,7 +21,7 @@ export default function CategoryPage() {
               key={cat}
               to={`/category/${cat}`}
               className={({ isActive }) =>
-                `text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200 ${
+                `text-2xl xl:text-5xl font-bold uppercase mb-5 px-3 py-2 transition-colors duration-200 ${
                   isActive ? "text-white" : "text-red-500"
                 }`
               }
@@ -44,9 +44,10 @@ export default function CategoryPage() {
               src="/mood/nothing.png"
               alt="nothing"
               className="
-                w-[170px] md:w-[370px] xl:w-[470px] object-contain
+                w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain
 
-                -translate-x-4 -translate-y-20
+                -translate-x-2 -translate-y-14
+                sm:-translate-x-6 sm:-translate-y-12
                 md:-translate-x-10 md:-translate-y-10
                 xl:-translate-x-8 xl:-translate-y-20
               "

@@ -9,6 +9,7 @@ export default function FaqPanel() {
   const [open, setOpen] = useState(null);
   return (
     <section className="py-6">
+      <h2 className="pb-6 text-xl font-bold">자주묻는질문</h2>
       <ul className="divide-y border rounded">
         {seedFaqs.map((f, idx) => (
           <li key={idx} className="p-3">

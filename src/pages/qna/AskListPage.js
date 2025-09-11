@@ -36,42 +36,59 @@ export default function AskListPage({
   const close = () => nav(`/qna/ask`);
 
   return (
-    <section className="py-6 grid md:grid-cols-5 gap-6">
-      {/* 목록 */}
-      <ul className="md:col-span-2 border rounded divide-y">
-        <li className="flex items-center justify-between p-3">
-          <h1 className="font-semibold">무.물.보</h1>
-          <div className="flex items-center gap-2">
-            <button
-              className="text-xs px-2 py-1 border rounded"
-              onClick={refresh}
-            >
-              새로고침
-            </button>
-            <Link
-              to="/qna/ask/write"
-              className="text-xs px-2 py-1 border rounded bg-black text-white"
-            >
-              글쓰기
-            </Link>
-          </div>
-        </li>
+    <section className="py-6 grid gap-6">
+      {/* 상단 바 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">무.물.보</h2>
+        <div className="flex items-center gap-2">
+          <button className="text-xs px-2 py-1 border rounded" onClick={refresh}>
+            새로고침
+          </button>
+          <Link
+            to="/qna/ask/write"
+            className="text-xs px-2 py-1 border rounded bg-black text-white"
+          >
+            글쓰기
+          </Link>
+        </div>
+      </div>
 
+      {/* 번호 리스트 + 시간 */}
+      <ol
+        className="
+          bg-white
+          list-decimal list-outside pl-3
+          space-y-1
+        "
+        style={{ listStyleType: "decimal" }} 
+      >
         {items.map((i) => {
           const answered = i.status === "answered";
+          const active = selectedId === i.id;
+
           return (
-            <li key={i.id}>
+            <li
+              key={i.id}
+              className={`list-item p-3 rounded ${active ? "bg-gray-50" : ""}`}
+              style={{ listStyleType: "decimal" }} 
+            >
               <button
-                className={`w-full text-left p-3 outline-none ring-0 [appearance:none] ${
-                  selectedId === i.id ? "bg-gray-50" : ""
-                }`}
+                type="button"
                 onClick={() => open(i.id)}
+                aria-pressed={active}
+                className="w-full flex items-center gap-3 hover:opacity-90 text-left outline-none ring-0 [appearance:none]"
               >
-                <div className="font-medium flex items-center gap-2">
-                  <span className="text-red-500">🔒</span>
-                  <span className="truncate">{i.title || "(제목 없음)"}</span>
+                {/* 제목 + 배지 */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span>🔒</span>
+                    <span
+                      className="truncate font-medium"
+                      title={i.title || ""}
+                    >
+                      귀찮게하네
+                    </span>
                   <span
-                    className={`text-[10px] rounded px-1.5 py-0.5 ${
+                    className={`text-[10px] rounded px-1.5 py-0.5 shrink-0 ${
                       answered
                         ? "bg-green-100 text-green-700"
                         : "bg-gray-100 text-gray-700"
@@ -80,22 +97,24 @@ export default function AskListPage({
                     {answered ? "답변완료" : "대기"}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  by {i.authorName} ·{" "}
-                  {new Date(i.createdAt).toLocaleDateString()}
-                </div>
+
+                {/* 시간 */}
+                <time className="shrink-0 text-xs text-gray-500 whitespace-nowrap">
+                  {new Date(i.createdAt).toLocaleString()}
+                </time>
               </button>
             </li>
           );
         })}
-      </ul>
 
-      {/* 오른쪽 빈 패널(드로어 사용시 시각 균형용) */}
-      <div className="hidden md:block md:col-span-3 border rounded p-4 text-gray-400 text-sm">
-        질문을 선택하면 오른쪽 드로어에서 열립니다.
-      </div>
+        {items.length === 0 && (
+          <li className="p-6 text-center text-sm text-gray-500 list-none">
+            등록된 글이 없습니다.
+          </li>
+        )}
+      </ol>
 
-      {/* 드로어 상세 */}
+      {/* 드로어 상세 (오버레이로 표시) */}
       {selected && (
         <AskDrawer
           ask={selected}

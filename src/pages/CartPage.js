@@ -1,47 +1,71 @@
+// src/pages/CartPage.js
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
-/* 라인아이템 고유키: sku > lineItemId > product.id + 옵션 조합 */
+/** 안전 파싱 */
+const num = (v, f = 0) => (Number.isFinite(Number(v)) ? Number(v) : f);
+
+/** 라인아이템 고유키: sku > lineItemId > product.id + 옵션 조합 */
 const getItemKey = (it) => {
-  const pid = String(it.product?.id ?? "");
-  const sku = it.sku;
-  const lid = it.lineItemId;
+  const pid = String(it?.product?.id ?? "");
+  const sku = it?.sku;
+  const lid = it?.lineItemId;
   const size =
-    it.selectedOptions?.Size || it.size || it.product?.selectedSize || it.product?.size || "";
+    it?.selectedOptions?.Size ||
+    it?.size ||
+    it?.product?.selectedSize ||
+    it?.product?.size ||
+    "";
   const color =
-    it.selectedOptions?.Color || it.color || it.product?.selectedColor || it.product?.color || "";
+    it?.selectedOptions?.Color ||
+    it?.color ||
+    it?.product?.selectedColor ||
+    it?.product?.color ||
+    "";
   return String(sku || lid || `${pid}:${size}:${color}`);
 };
 
-/* 같은 product.id 끼리 묶기 (이미지 1장 + 옵션 요약용) */
+/** 같은 product.id 끼리 묶기 (이미지 1장 + 옵션 요약용) */
 const groupByProduct = (cart) => {
   const map = new Map();
-  (cart || []).forEach((it) => {
-    const pid = String(it.product.id);
-    if (!map.has(pid)) map.set(pid, { product: it.product, items: [] });
-    map.get(pid).items.push(it);
-  });
+  (cart || [])
+    .filter((it) => it?.product && it?.product?.id != null)
+    .forEach((it) => {
+      const pid = String(it.product.id);
+      if (!map.has(pid)) map.set(pid, { product: it.product, items: [] });
+      map.get(pid).items.push(it);
+    });
   return Array.from(map.values());
 };
 
-/* 옵션 요약 포맷: 수량(2),size(1),color(white) */
+/** 옵션 요약 포맷: 수량(2),size(1),color(white) */
 const formatOption = (it) => {
   const size =
-    it.selectedOptions?.Size ||
-    it.size ||
-    it.product?.selectedSize ||
-    it.product?.size ||
+    it?.selectedOptions?.Size ??
+    it?.size ??
+    it?.product?.selectedSize ??
+    it?.product?.size ??
     "-";
   const color =
-    it.selectedOptions?.Color ||
-    it.color ||
-    it.product?.selectedColor ||
-    it.product?.color ||
+    it?.selectedOptions?.Color ??
+    it?.color ??
+    it?.product?.selectedColor ??
+    it?.product?.color ??
     "-";
-  const qty = it.quantity ?? 1;
+  const qty = it?.quantity ?? 1;
   return `수량(${qty}),size(${String(size)}),color(${String(color)})`;
 };
+
+/** 썸네일 우선순위: product.images[0] > product.image > (레거시) item.image > 빈 문자열 */
+const getThumb = (item) =>
+  item?.product?.images?.[0] ??
+  item?.product?.image ??
+  item?.image ??
+  "";
+
+/** 상품 가격: product.price 숫자 */
+const getPrice = (product) => num(product?.price, 0);
 
 export default function CartPage() {
   const { cart, removeFromCart } = useCart();
@@ -92,9 +116,7 @@ export default function CartPage() {
 
   const selectedTotal = useMemo(() => {
     return selectedItems.reduce((sum, it) => {
-      const unit = Number(it?.product?.price) || 0;
-      const qty = it?.quantity ?? 1;
-      return sum + unit * qty;
+      return sum + getPrice(it?.product) * (it?.quantity ?? 1);
     }, 0);
   }, [selectedItems]);
 
@@ -114,11 +136,11 @@ export default function CartPage() {
 
   // 그룹 삭제: 해당 상품의 모든 라인아이템 삭제
   const removeGroup = (group) => {
-    group.items.forEach((it) => removeFromCart(getItemKey(it))); // removeFromCart가 lineKey/sku 지원해야 정확
+    group.items.forEach((it) => removeFromCart(getItemKey(it))); // removeFromCart가 lineKey/sku 지원
   };
 
   return (
-    <div className="min-h-screen bg-white text-black p-6 w-full">
+    <div className="min-h-screen bg-white text-black pl-10 pr-10 w-full">
       <div className="text-5xl p-4 text-center font-bold mb-6">
         What's in my bag?
       </div>
@@ -161,7 +183,7 @@ export default function CartPage() {
           </div>
 
           {/* 제품 카드 그리드 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group) => {
               const p = group.product;
               const pid = String(p.id);
@@ -169,6 +191,13 @@ export default function CartPage() {
 
               // 옵션 요약: "option : 수량(2),size(1),color(white) / 수량(1),size(1),color(black)"
               const summary = group.items.map(formatOption).join(" / ");
+
+              // 썸네일
+              const thumb =
+                p?.images?.[0] ??
+                p?.image ??
+                group.items.find((it) => getThumb(it))?.image ??
+                "";
 
               return (
                 <div key={pid} className="p-4">
@@ -180,10 +209,12 @@ export default function CartPage() {
                       aria-pressed={checked}
                       title="선택"
                       className={`w-7 h-7 border-2 flex items-center justify-center transition
-                                  outline-none ring-0 [appearance:none]us:ring
-                                  ${checked
-                                    ? "bg-white text-xl font-bold text-red-500 border-red-500"
-                                    : "bg-white text-xl font-bold text-gray-300 border-gray-300 "}`}
+                                  outline-none ring-0 [appearance:none]
+                                  ${
+                                    checked
+                                      ? "bg-white text-xl font-bold text-red-500 border-red-500"
+                                      : "bg-white text-xl font-bold text-gray-300 border-gray-300"
+                                  }`}
                     >
                       ✓
                     </button>
@@ -192,9 +223,13 @@ export default function CartPage() {
                   {/* 이미지 (안쪽 우상단 X 삭제) */}
                   <div className="relative">
                     <img
-                      src={p.image}
-                      alt={p.name}
+                      src={thumb}
+                      alt={p?.name || "item"}
                       className="w-full aspect-square object-cover rounded-xl"
+                      onError={(e) => {
+                        // 경로 깨질 때 대비: public에 placeholder가 있다면 교체
+                        e.currentTarget.src = "/mood/nothing.png";
+                      }}
                     />
                     <button
                       type="button"
@@ -210,14 +245,13 @@ export default function CartPage() {
 
                   {/* 상품명 */}
                   <div className="mt-3 text-2xl text-center font-bold line-clamp-2">
-                    {p.name}
+                    {p?.name}
                   </div>
 
                   {/* 가격 */}
                   <div className="mt-3 text-xl text-center font-bold line-clamp-2">
-                    {p.price}WON
+                    {getPrice(p).toLocaleString()}WON
                   </div>
-
 
                   {/* 옵션 요약 (라인 목록·번호 없음) */}
                   <div className="mt-3 text-xl text-center font-bold">
@@ -243,10 +277,10 @@ export default function CartPage() {
                   navigate("/checkout", {
                     state: {
                       selectedItems: selectedItems.map((it) => ({
-                        id: it.product.id,
-                        quantity: it.quantity,
-                        sku: it.sku,
-                        selectedOptions: it.selectedOptions,
+                        id: it?.product?.id,
+                        quantity: it?.quantity,
+                        sku: it?.sku,
+                        selectedOptions: it?.selectedOptions,
                       })),
                     },
                   })

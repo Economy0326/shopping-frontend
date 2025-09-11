@@ -1,5 +1,6 @@
 import { ToastContainer } from "react-toastify";
 import Header from "./Header";
+import FooterLegal from "./FooterLegal";
 
 function Layout({
   children,
@@ -9,14 +10,15 @@ function Layout({
   setUsername,
 }) {
   return (
-    <div className="min-h-screen p-10 bg-white text-black">
+    <div className="min-h-dvh flex flex-col m-4 bg-white text-black">
       <Header
         isLoggedIn={isLoggedIn}
         setIsLoggedIn={setIsLoggedIn}
         username={username}
         setUsername={setUsername}
       />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
+      <FooterLegal />
       <ToastContainer />
     </div>
   );

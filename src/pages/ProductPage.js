@@ -1,5 +1,5 @@
-// src/pages/ProductPage.js
-import { useMemo, useState } from "react";
+// 상품 상세페이지 + 룩북 상세페이지
+import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
 import products from "../data/Product";
 import { useCart } from "../context/CartContext";
@@ -35,6 +35,8 @@ export default function ProductPage() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const [lookMd, setLookMd] = useState("");
+
   const toggle = (sectionKey) =>
     setOpen((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
 
@@ -45,6 +47,41 @@ export default function ProductPage() {
     [id]
   );
 
+  const images = product.images;
+
+  const sizeOptions =
+    Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : [1, 2];
+  const colorOptions =
+    Array.isArray(product?.colors) && product.colors.length ? product.colors : ["white", "black"];
+
+  const isLook = product?.category === "look";
+  const lookMdPath = product?.lookMd || "";
+    
+  const hasPrice = typeof product.price === "number" && !isLook;
+  const formattedPrice = hasPrice ? product.price.toLocaleString() : null;
+
+  //LOOK이면 public의 md 파일(fetch) 로드
+  useEffect(() => {
+    let alive = true;
+    async function loadMd() {
+      if (isLook && product.lookMd) {
+        try {
+          const res = await fetch(product.lookMd);
+          const txt = await res.text();
+          if (alive) setLookMd(txt);
+        } catch {
+          if (alive) setLookMd("");
+        }
+      } else {
+        setLookMd("");
+      }
+    }
+    loadMd();
+    return () => {
+      alive = false;
+    };
+  }, [isLook, lookMdPath]);
+
   if (!product) {
     return (
       <main className="max-w-5xl mx-auto p-6">
@@ -54,29 +91,39 @@ export default function ProductPage() {
     );
   }
 
-  const images = product.images;
-
-  const sizeOptions =
-    Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : [1, 2];
-  const colorOptions =
-    Array.isArray(product?.colors) && product.colors.length ? product.colors : ["white", "black"];
-
-  const isLook = product.category === "look";
-  const hasPrice = typeof product.price === "number" && !isLook;
-  const formattedPrice = hasPrice ? product.price.toLocaleString() : null;
-
-  const handleAdd = () => {
-    setError("");
+  // 옵션 선택 검증
+  const validateSelection = () => {
     if (!isLook && (!selectedSize || !selectedColor)) {
       setError("색상과 사이즈를 선택해주세요.");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  // 현재 선택 상태를 장바구니에 추가
+  const addCurrentToCart = () => {
+    if (!validateSelection()) return false;
+
     const item = {
       ...product,
       price: Number(product.price) || 0,
       selected: { size: selectedSize, color: selectedColor },
     };
     addToCart(item, Math.max(1, qty));
+    return true;
+  };
+
+  // BUY! : 담고 → 장바구니 페이지로 이동
+  const handleBuyNow = () => {
+    setError("");
+    if (!addCurrentToCart()) return;
+    navigate("/cart");
+  };
+
+  // 아이콘 버튼 : 담기만 하고 토스트
+  const handleAddOnly = () => {
+    setError("");
+    if (!addCurrentToCart()) return;
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
@@ -85,16 +132,16 @@ export default function ProductPage() {
     <>
       {/* 카테고리 */}
       <header>
-        <nav
-          aria-label="카테고리"
-          className="flex justify-between gap-2 xl:gap-4 w-full xl:w-4/5 mx-auto p-5 bg-white"
-        >
-          {categories.map((cat) => (
+        {isLook ? (
+          <nav
+            aria-label="카테고리"
+            className="flex justify-center w-full xl:w-4/5 mx-auto p-5 bg-white"
+          >
             <NavLink
-              key={cat}
-              to={`/category/${cat}`}
+              to="/look"
               className={({ isActive }) =>
-                `text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200 ${
+                `relative
+                text-4xl xl:text-5xl font-bold -translate-x-1 md:-translate-x-1 xl:-translate-x-1 uppercase px-2 py-1 transition-colors duration-200 ${
                   isActive ? "text-white" : "text-red-500"
                 }`
               }
@@ -102,10 +149,30 @@ export default function ProductPage() {
                 isActive ? { WebkitTextStroke: "1px red" } : {}
               }
             >
-              {cat}
+              look
             </NavLink>
-          ))}
-        </nav>
+          </nav>
+        ) : (
+          // 그 외 카테고리 상품 상세에서는 기존 전체 탭
+          <nav className="flex justify-between gap-2 xl:gap-4 w-full xl:w-4/5 mx-auto p-5 bg-white">
+            {categories.map((cat) => (
+              <NavLink
+                key={cat}
+                to={`/category/${cat}`}
+                className={({ isActive }) =>
+                  `text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200 ${
+                    isActive ? "text-white" : "text-red-500"
+                  }`
+                }
+                style={({ isActive }) =>
+                  isActive ? { WebkitTextStroke: "1px red" } : {}
+                }
+              >
+                {cat}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </header>
 
       {/* 상세 페이지 내용 */}
@@ -114,7 +181,7 @@ export default function ProductPage() {
         <div className="lg:sticky lg:top-6 justify-self-center">
           <div 
             className="
-              relative 
+              relative
               w-[520px] sm:w-[520px] md:w-[520px] lg:w-[520px]
               mx-auto lg:mx-0
             "
@@ -143,7 +210,7 @@ export default function ProductPage() {
             <img
               src={product.images[currentIndex]}
               alt={`${product.name} ${currentIndex + 1}`}
-              className="w-full h-auto object-cover"
+              className="w-full h-auto object-cover rounded-2xl"
             />
 
             {/* 오른쪽 삼각형 버튼 */}
@@ -173,7 +240,7 @@ export default function ProductPage() {
         <section className="flex flex-col gap-8">
           {/* 정보 */}
           <div className="grid gap-2">
-            <h1 className="text-4xl font-bold">{product.name}</h1>
+            <h1 className="text-4xl font-bold">{isLook ? "NO THINKING AREA" : product.name}</h1>
             {hasPrice && (
               <div className="text-xl font-bold text-black">
                 PRICE {formattedPrice} WON
@@ -186,7 +253,7 @@ export default function ProductPage() {
             <>
               <div className="grid gap-6">
                 {/* 사이즈 */}
-                <div role="radiogroup" className="flex flex-wrap">
+                <div role="radiogroup" className="flex flex-wrap gap-1">
                   {sizeOptions.map((s) => {
                     const isSelected = String(selectedSize) === String(s);
                     return (
@@ -210,7 +277,7 @@ export default function ProductPage() {
                 </div>
 
                 {/* 색상 */}
-                <div role="radiogroup" className="flex flex-wrap">
+                <div role="radiogroup" className="flex flex-wrap gap-1">
                   {colorOptions.map((color) => {
                     const isSelected = selectedColor === color;
                     const bgClass =
@@ -252,7 +319,7 @@ export default function ProductPage() {
             <div className="flex w-full h-10 items-center gap-2">
               <button
                 type="button"
-                onClick={handleAdd}
+                onClick={handleBuyNow}
                 disabled={!selectedSize || !selectedColor}
                 aria-disabled={!selectedSize || !selectedColor}
                 className="flex-[0_0_80%] h-full bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -294,53 +361,67 @@ export default function ProductPage() {
                 {/* 장바구니 버튼 */}
                 <button
                   type="button"
-                  onClick={() => navigate("/cart")}
-                  className="border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                  onClick={handleAddOnly}
+                  disabled={!selectedSize || !selectedColor}
+                  aria-disabled={!selectedSize || !selectedColor}
+                  aria-label="장바구니에 담기"
+                  className="w-7 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
                 >
-                  @
+                  <img src="/mood/bag.png" alt="bag" className="inline-flex items-center justify-center w-4 h-7"/>
                 </button>
               </div>
             </div>
           )}
 
-          {/* 상품 설명 */}
-          <div>
-            <div> 
-              {[
-                { key: "size", title: "SIZE GUIDE", content: "사이즈 안내 내용" },
-                { key: "info", title: "PRODUCT INFO", content: "상품 정보 내용" },
-                { key: "return", title: "RETURN/EXCHANGE", content: "교환/환불 안내" },
-              ].map(({ key, title, content }) => (
-                <div key={key} >
-                  <button
-                    onClick={() => toggle(key)}
-                    aria-expanded={open[key]}
-                    aria-controls={`sec-${key}`}
-                    className="relative w-full flex justify-start font-bold py-2 outline-none ring-0 [appearance:none]"
-                  >
-                    {/* 제목 */}
-                    <span className="pr-10">{title}</span>
-
-                    {/* 화살표  */}
-                    <span
-                      className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
-                        open[key] ? "rotate-180" : ""
-                      }`}
+          {/* 상품 설명 / LOOK 상세페이지 */}
+          {isLook ? (
+            <section className="text-sm leading-7 text-black/90 max-w-none">
+              {lookMd
+                ? <div className="whitespace-pre-line">{lookMd.trim()}</div>
+                : <p className="whitespace-pre-line">
+                    {product.description || "룩 설명을 준비 중입니다."}
+                  </p>}
+            </section>
+          ) : (
+            // 일반 상품
+            <div>
+              <div> 
+                {[
+                  { key: "size", title: "SIZE GUIDE", content: "사이즈 안내 내용" },
+                  { key: "info", title: "PRODUCT INFO", content: "상품 정보 내용" },
+                  { key: "return", title: "RETURN/EXCHANGE", content: "교환/환불 안내" },
+                ].map(({ key, title, content }) => (
+                  <div key={key} >
+                    <button
+                      onClick={() => toggle(key)}
+                      aria-expanded={open[key]}
+                      aria-controls={`sec-${key}`}
+                      className="relative w-full flex justify-start font-bold py-2 outline-none ring-0 [appearance:none]"
                     >
-                      ▼
-                    </span>
-                  </button>
+                      {/* 제목 */}
+                      <span className="pr-10">{title}</span>
 
-                  {/* 내용 */}
-                  {open[key] && (
-                    <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
-                      {content}
-                    </div>
-                  )}
-                </div>
-              ))}
+                      {/* 화살표  */}
+                      <span
+                        className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
+                          open[key] ? "rotate-180" : ""
+                        }`}
+                      >
+                        ▼
+                      </span>
+                    </button>
+
+                    {/* 내용 */}
+                    {open[key] && (
+                      <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
+                        {content}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {added && (

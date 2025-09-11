@@ -1,4 +1,5 @@
-import ProductGrid from "../components/ProductGrid";
+//룩 카테고리 페이지
+import LookGrid from "../components/look/LookGrid";
 import products from "../data/Product";
 
 export default function LookPage() {
@@ -6,20 +7,30 @@ export default function LookPage() {
 
   return (
     <>
-      {/* 제목 */}
       <header className="bg-white py-8 text-center">
-        <h1 className="text-3xl xl:text-5xl font-bold text-red-500 uppercase tracking-wide">
+        <h1 className={`relative sm:-translate-x-1 md:-translate-x-1 xl:-translate-x-1 text-red-500 
+                      text-4xl xl:text-5xl font-bold uppercase px-2 sm:-translate-y-2`}>
           LOOK
         </h1>
       </header>
 
-      {/* 메인 */}
       <main className="p-6 max-w-7xl mx-auto">
         {lookProducts.length > 0 ? (
-          <ProductGrid products={lookProducts} />
+          <LookGrid products={lookProducts} />
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-            <p>업소용</p>
+          <div className="min-h-[50vh] grid place-items-center">
+            <img
+              src="/mood/nothing.png"
+              alt="nothing"
+              className="
+                w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain
+
+                -translate-x-2 -translate-y-14
+                sm:-translate-x-6 sm:-translate-y-12
+                md:-translate-x-10 md:-translate-y-10
+                xl:-translate-x-8 xl:-translate-y-20
+              "
+            />
           </div>
         )}
       </main>

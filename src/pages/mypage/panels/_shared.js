@@ -2,14 +2,14 @@ export function PanelShell({ title, children }) {
   return (
     <div className="overflow-x-auto">
       <h2 className="text-lg font-semibold mb-4">{title}</h2>
-      <div className="border rounded">{children}</div>
+      <div className="rounded">{children}</div>
     </div>
   );
 }
 
 export function EmptyState({ children }) {
   return (
-    <div className="border rounded p-4 text-sm text-gray-600">{children}</div>
+    <div className="rounded p-4 text-sm text-gray-600">{children}</div>
   );
 }
 
@@ -23,7 +23,7 @@ export function OrdersTable({ columns, rows }) {
           {columns.map((c) => (
             <th
               key={c.title}
-              className={`p-2 border whitespace-nowrap ${c.className || ""}`}
+              className={`p-2 whitespace-nowrap ${c.className || ""}`}
               style={c.width ? { width: c.width } : undefined}
             >
               {c.title}

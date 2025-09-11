@@ -1,3 +1,6 @@
+// 이미지는 꼭 2개 이상씩 넣기
+// 그래야 틀도 안 망가지고, 화살표도 나옴
+
 const products = [
   {
     id: "1",
@@ -62,13 +65,10 @@ const products = [
   // 룩북(look) 카테고리는 구매/가격 비노출 로직 그대로 사용
   {
     id: "3",
-    name: "Look #1",
+    name: "2025 FIRST DROP '오류시대'",
     category: "look",
-    images: ["/wear/look1.jpg"],
-    // sizes/colors/variants 없어도 OK
-    sizes: [],
-    colors: [],
-    variants: [],
+    images: ["/wear/look1.jpg" , "/wear/top1.jpg"],
+    lookMd: "/look/101.txt"
   },
 ];
 

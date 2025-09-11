@@ -40,11 +40,20 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
 
         {/* 공통 이미지 */}
         <div className="fixed top-0 left-0 right-0 bg-white h-16 px-4 flex items-center justify-between relative">
-          <img
-            src="/mood/brand-logo.png"
-            alt="로고"
-            className="h-10 object-contain ml-24"
-          />
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className={`${navBtn} cursor-pointer ml-20`}
+            style={tapHighlightNone}
+            aria-label="홈으로 이동"
+            title="홈으로 이동"
+          >
+            <img
+              src="/mood/brand-logo.png"
+              alt="로고"
+              className="h-10 object-contain ml-24"
+            />
+          </button>
         </div>
 
         {/* Q&A페이지 + 마이페이지 + 로그인 + 장바구니 */}

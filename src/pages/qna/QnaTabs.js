@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 
-const NoticePanel = lazy(() => import("./panels/NoticePanel"));
+const NoticeListPage = lazy(() => import("./NoticeListPage"));
 const AskListPage = lazy(() => import("./AskListPage"));
 const FaqPanel = lazy(() => import("./panels/FaqPanel"));
 
@@ -16,7 +16,7 @@ export default function QnaPage({ isLoggedIn, username, currentUserId, isAdmin }
   return (
     <main className="max-w-5xl mx-auto pb-16">
       <nav className="sticky top-16 bg-white z-10">
-        <h1 className="font-bold text-5xl text-red-500 text-center">QUESTION AND ANSWER</h1>
+        <h1 className="mb-2 font-bold text-5xl text-red-500 text-center">QUESTION AND ANSWER</h1>
         <ul className="flex gap-2 justify-center">
           <li>
             <button
@@ -48,7 +48,7 @@ export default function QnaPage({ isLoggedIn, username, currentUserId, isAdmin }
       </nav>
 
       <Suspense fallback={<div className="py-6">불러오는 중…</div>}>
-        {tab === "notice" && <NoticePanel />}
+        {tab === "notice" && <NoticeListPage />}
         {tab === "ask" && (
           <AskListPage 
             currentUserId = {currentUserId}

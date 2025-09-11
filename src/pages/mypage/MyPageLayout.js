@@ -19,7 +19,7 @@ export default function MyPageLayout({ isLoggedIn, username, onLogout}) {
     `block rounded ${isActive ?  "text-white" : "hover:text-black"}`
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="mx-auto">
       <div className="flex">
         {/* 사이드바 */}
         <aside className="bg-red-500 flex-none shrink-0 sticky top-16
