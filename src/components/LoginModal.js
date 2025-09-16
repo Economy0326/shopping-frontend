@@ -11,7 +11,7 @@ export default function LoginModal({
   setShowLoginModal,
 }) {
   const navigate = useNavigate();
-  const { login } = useAuth(); //n중앙집중 로그인 사용
+  const { login } = useAuth(); //중앙집중 로그인 사용
   const [loading, setLoading] = useState(false);
 
   const onLogin = useCallback(async () => {

@@ -1,5 +1,9 @@
 import { request } from "../lib/request";
+import { SYSTEM } from "../constants/apiRoutes";
 
-export const SystemAPI = {
-  getPolicy: (key) => request.get(`/api/system/policies/${key}`), // "returns" 등
+// GET /api/system/policies/:key  → { contentMd }
+const SystemAPI = {
+  getPolicy: (key) => request.get(SYSTEM.POLICY(key)),
 };
+export default SystemAPI;
+

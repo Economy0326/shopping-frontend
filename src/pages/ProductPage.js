@@ -3,6 +3,8 @@ import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
 import products from "../data/Product";
 import { useCart } from "../context/CartContext";
+import { ProductAPI } from "../api/products";
+import SystemAPI from "../api/system";
 
 function TriangleArrow({ className = "w-full h-full text-red-500", direction = "right" }) {
   const rotateClass = direction === "left" ? "rotate-180" : "";
@@ -33,6 +35,14 @@ export default function ProductPage() {
     return: false,
   });
 
+  const [sizeGuideMd, setSizeGuideMd]     = useState("");
+  const [productInfoMd, setProductInfoMd] = useState("");
+  const [returnsMd, setReturnsMd]         = useState("");
+  const [loadingInfo, setLoadingInfo]     = useState(true);
+
+  const DEFAULT_RETURNS_TEXT = "교환/환불 안내를 준비 중입니다.";
+  const USE_RETURNS_API = process.env.REACT_APP_USE_RETURNS_API === "true"; // 나중에 true로
+
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [lookMd, setLookMd] = useState("");
@@ -60,6 +70,63 @@ export default function ProductPage() {
   const hasPrice = typeof product.price === "number" && !isLook;
   const formattedPrice = hasPrice ? product.price.toLocaleString() : null;
 
+// 설명 섹션 로딩: 서버 우선, 실패 시 로컬/기본 문구
+useEffect(() => {
+  let alive = true;
+
+  async function fetchTextMaybe(url) {
+    try {
+      if (!url) return "";
+      const res = await fetch(url);
+      if (!res.ok) return "";
+      return await res.text();
+    } catch { return ""; }
+  }
+
+  (async () => {
+    setLoadingInfo(true);
+
+    // 1) 제품 상세(서버 시도 → 실패 시 로컬 product에서)
+    let detail = null;
+    try {
+      detail = await ProductAPI.detail(id); // 서버 없으면 여기서 에러 나고 catch 됨
+    } catch { /* 서버 준비 전 */ }
+
+    const sizeMdUrl   = detail?.sizeGuideMd   ?? product?.sizeGuideMd;
+    const infoMdUrl   = detail?.productInfoMd ?? product?.productInfoMd;
+
+    const sizeTextFallback = product?.sizeGuideText   ?? "";
+    const infoTextFallback = product?.productInfoText ?? "";
+
+    const [sizeMd, infoMd] = await Promise.all([
+      sizeMdUrl ? fetchTextMaybe(sizeMdUrl) : "",
+      infoMdUrl ? fetchTextMaybe(infoMdUrl) : "",
+    ]);
+
+    if (alive) {
+      setSizeGuideMd(sizeMd?.trim() || sizeTextFallback);
+      setProductInfoMd(infoMd?.trim() || infoTextFallback);
+    }
+
+    // 2) 공통 반품/교환: 지금은 "준비중" 고정 → 나중에 플래그로 API 전환
+    let returnsText = "";
+    if (USE_RETURNS_API) {
+      try {
+        const policy = await SystemAPI.getPolicy("returns");
+        returnsText = policy?.contentMd ?? "";
+      } catch {
+        // API 실패 시에도 고정 문구 유지
+        returnsText = "";
+      }
+    }
+    if (alive) setReturnsMd((returnsText.trim() || DEFAULT_RETURNS_TEXT));
+    
+    if (alive) setLoadingInfo(false);
+  })();
+
+  return () => { alive = false; };
+}, [id, product?.sizeGuideMd, product?.productInfoMd]);
+
   //LOOK이면 public의 md 파일(fetch) 로드
   useEffect(() => {
     let alive = true;
@@ -86,7 +153,7 @@ export default function ProductPage() {
     return (
       <main className="max-w-5xl mx-auto p-6">
         <p className="text-gray-600">상품을 찾을 수 없습니다.</p>
-        <button className="text-red-500 underline" onClick={() => navigate(-1)}>돌아가기</button>
+        <button className="text-red-500 underline" onClick={() => navigate(-1)}>GET OUT</button>
       </main>
     );
   }
@@ -132,6 +199,7 @@ export default function ProductPage() {
     <>
       {/* 카테고리 */}
       <header>
+        {/* 룩 상세페이지 */}
         {isLook ? (
           <nav
             aria-label="카테고리"
@@ -383,13 +451,13 @@ export default function ProductPage() {
                   </p>}
             </section>
           ) : (
-            // 일반 상품
+            //일반 상품
             <div>
               <div> 
                 {[
-                  { key: "size", title: "SIZE GUIDE", content: "사이즈 안내 내용" },
-                  { key: "info", title: "PRODUCT INFO", content: "상품 정보 내용" },
-                  { key: "return", title: "RETURN/EXCHANGE", content: "교환/환불 안내" },
+                  { key: "size",   title: "SIZE GUIDE",      content: sizeGuideMd || "사이즈 안내를 준비 중입니다." },
+                  { key: "info",   title: "PRODUCT INFO",    content: productInfoMd || "상품 정보를 준비 중입니다." },
+                  { key: "return", title: "RETURN/EXCHANGE", content: returnsMd || DEFAULT_RETURNS_TEXT },
                 ].map(({ key, title, content }) => (
                   <div key={key} >
                     <button
@@ -414,7 +482,7 @@ export default function ProductPage() {
                     {/* 내용 */}
                     {open[key] && (
                       <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
-                        {content}
+                        {loadingInfo ? "로딩 중…" : (content || "")}
                       </div>
                     )}
                   </div>

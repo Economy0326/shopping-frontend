@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
     return () => { alive = false; };
   }, []);
 
-  // 중앙집중 로그인(선호) — 필요 없으면 LoginModal에서 setUser 직접 호출해도 됨
+  // 중앙집중 로그인(선호) 
   const login = useCallback(async ({ username, password }) => {
     if (!username?.trim() || !password?.trim()) {
       toast.error("ID와 PW를 입력해주세요");

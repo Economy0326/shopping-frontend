@@ -1,27 +1,22 @@
 import { request } from "../lib/request";
+import { AUTH } from "../constants/apiRoutes";
+
+const F = {
+  id:      process.env.REACT_APP_FIELD_ID      || "mid",
+  pw:      process.env.REACT_APP_FIELD_PASSWORD|| "mpw",
+  name:    process.env.REACT_APP_FIELD_NAME    || "mname",
+  email:   process.env.REACT_APP_FIELD_EMAIL   || "email",
+};
 
 export const AuthAPI = {
-  // 회원가입
-  register: (payload) =>
-    request.post("/api/auth/register", payload),
-
-  // 로그인 (백엔드가 usernameOrEmail을 받는다면 그 키로 보내기)
-  login: (payload) =>
-    request.post("/api/auth/login", payload),
-
-  // 현재 사용자
-  me: () => request.get("/api/auth/me"),
-
-  // 로그아웃
-  logout: () => request.post("/api/auth/logout"),
-
-  // 비번 재설정(요청/확정)
-  resetRequest: (email) =>
-    request.post("/api/auth/password-reset/request", { email }),
-
-  resetConfirm: (payload) =>
-    request.post("/api/auth/password-reset/confirm", payload),
-
-  // 🔁 토큰 갱신 (쿠키 기반이면 바디 없음)
-  refresh: () => request.post("/api/auth/refresh"),
+  login:   ({ username, password }) => request.post(AUTH.LOGIN, { [F.id]: username, [F.pw]: password }),
+  me:      () => request.get(AUTH.ME),
+  logout:  () => request.post(AUTH.LOGOUT),
+  register:(p) => request.post(AUTH.REGISTER, {
+              [F.id]: p.username, [F.pw]: p.password,
+              ...(p.name  ? { [F.name]:  p.name }  : {}),
+              ...(p.email ? { [F.email]: p.email } : {}),
+            }),
+  changePassword: ({ currentPassword, newPassword }) =>
+            request.post(AUTH.PW_CHANGE, { current: currentPassword, next: newPassword }),
 };

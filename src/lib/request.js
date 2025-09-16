@@ -1,14 +1,18 @@
 import axios from "axios";
-import { API_BASE } from "./env";
+import { AUTH } from "../constants/apiRoutes";
 
+// 개발(프록시)에서는 "/"로, 배포에서는 REACT_APP_API_BASE 사용
+const BASE =
+  process.env.NODE_ENV === "development"
+    ? "/"                              // 프록시 경유
+    : (process.env.REACT_APP_API_BASE || "/");
 
 // 공용 axios 인스턴스
 export const api = axios.create({
-  baseURL: API_BASE || undefined,
-  withCredentials: true,  //jwt 쿠키 주고받기
-  headers: { "Content-Type": "application/json" },
+  baseURL: BASE,
+  withCredentials: true,  // jwt 쿠키 주고받기
+  // ⚠️ Content-Type은 요청별로 넣을 거라 여기선 지정하지 않음
 });
-
 
 // 401 자동 갱신 (쿠키 기반)
 let refreshing = false;
@@ -27,17 +31,14 @@ api.interceptors.response.use(
     const status = response.status;
     const url = String(config?.url || "").toLowerCase();
 
-    // 로그인/리프레시 요청 자체의 401은 재시도 금지
-    if (status !== 401 || url.includes("/auth/login") || url.includes("/auth/refresh")) {
+    if (status !== 401 || url.includes("/auth/login") || url.includes("/auth/refresh") || config.__retry) {
       throw err;
     }
-    if (config.__retry) throw err; // 무한루프 방지
 
-    // 동시 401 큐 처리
     if (!refreshing) {
       refreshing = true;
       try {
-        await api.post("/api/auth/refresh"); // 서버가 새 JWT 쿠키를 세팅
+        await api.post("AUTH.REFRESH");
         refreshing = false;
         wakeAll(true);
       } catch (e) {
@@ -49,40 +50,28 @@ api.interceptors.response.use(
       await new Promise((resolve, reject) => waiters.push({ resolve, reject }));
     }
 
-    // 원요청 재시도
-    const retry = { ...config, __retry: true };
-    return api(retry);
+    return api({ ...config, __retry: true });
   }
 );
 
-
-// 통일된 요청 래퍼
-export async function request(
-  path,
-  { method = "GET", body, headers, params } = {}
-) {
-  if (!API_BASE) {
-    const e = new Error("API_BASE not set");
-    e.status = 0;
-    throw e;
-  }
+// ✅ 통일된 요청 래퍼 (FormData면 Content-Type 자동 처리)
+export async function request(path, { method = "GET", body, headers, params } = {}) {
   const m = (method || "GET").toUpperCase();
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
 
   try {
     const res = await api.request({
       url: path,
       method: m,
-      headers: { ...(headers || {}) },
-      // GET 은 params, 나머지는 data 로 보냄
+      headers: isForm ? headers : { "Content-Type": "application/json", ...(headers || {}) },
       data: m === "GET" ? undefined : body,
       params: m === "GET" ? (params ?? body) : params,
     });
     return res?.data ?? null;
   } catch (err) {
     if (err.response) {
-      const { status, data } = err.response;
-      const message =
-        (data && (data.message || data.error)) || `HTTP ${status}`;
+      const { status, data, statusText } = err.response;
+      const message = (data && (data.message || data.error)) || statusText || `HTTP ${status}`;
       const e = new Error(message);
       e.status = status;
       e.payload = data;
@@ -97,21 +86,19 @@ export async function request(
   }
 }
 
-// 슈가 메서드
-request.get    = async (url, params)             => (await api.get(url, { params })).data;
-request.post   = async (url, body, headers)      => (await api.post(url, body, { headers })).data;
-request.put    = async (url, body, headers)      => (await api.put(url, body, { headers })).data;
-request.patch  = async (url, body, headers)      => (await api.patch(url, body, { headers })).data;
-request.delete = async (url, params)             => (await api.delete(url, { params })).data;
+// ✅ 슈가 메서드도 래퍼를 타게 (에러 포맷 일관)
+request.get    = (url, params)        => request(url, { method: "GET", params });
+request.post   = (url, body, headers) => request(url, { method: "POST", body, headers });
+request.put    = (url, body, headers) => request(url, { method: "PUT", body, headers });
+request.patch  = (url, body, headers) => request(url, { method: "PATCH", body, headers });
+request.delete = (url, params)        => request(url, { method: "DELETE", params });
 
-
-// 에러 메시지 헬퍼
-export const getAxiosErrorMessage = (
-  err,
-  fallback = "요청 중 오류가 발생했습니다"
-) => {
-  if (err?.payload?.error) return err.payload.error;
+// 에러 메시지 헬퍼 (axios/raw 모두 커버)
+export const getAxiosErrorMessage = (err, fallback = "요청 중 오류가 발생했습니다") => {
   if (err?.payload?.message) return err.payload.message;
+  if (err?.payload?.error) return err.payload.error;
+  if (err?.response?.data?.message) return err.response.data.message;
+  if (err?.response?.data?.error) return err.response.data.error;
   if (err?.message) return err.message;
   return fallback;
 };

@@ -20,7 +20,7 @@ const toQS = (params = {}) => {
 };
 
 export const OrdersAPI = {
-  // ✅ 체크아웃(주문 생성, 무통장 입금 대기)
+  // 체크아웃(주문 생성, 무통장 입금 대기)
   // 최종 스펙이 /api/checkout 이므로 여기로 정리
   checkout(payload) {
     return request(`/api/checkout`, {
