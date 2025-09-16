@@ -2,11 +2,11 @@ export const API_PREFIX = "/api";
 
 export const AUTH = {
   LOGIN:   `${API_PREFIX}/auth/login`,
-  REFRESH: `${API_PREFIX}/auth/refresh`,
+  REFRESH: `${API_PREFIX}/token/refresh`,
   ME:      `${API_PREFIX}/auth/me`,
   LOGOUT:  `${API_PREFIX}/auth/logout`,
   REGISTER:`${API_PREFIX}/auth/register`,
-  PW_CHANGE: `${API_PREFIX}/auth/password-change`,
+  PW_CHANGE: `${API_PREFIX}/auth/change-password`,
 };
 
 export const PRODUCTS = {
