@@ -4,9 +4,10 @@ module.exports = function (app) {
   app.use(
     "/api",
     createProxyMiddleware({
-      target: "http://<백엔드-IP>:4000", // 예: http://192.168.0.23:4000
+      target: "http://localhost:3000", // ← 백엔드 실제 주소/포트로 바꾸기
       changeOrigin: true,
-      cookieDomainRewrite: "localhost",   // 쿠키 도메인을 localhost로 교정
+      cookieDomainRewrite: "localhost",    // 쿠키 Domain을 프론트 호스트(보통 localhost)로 교정
+      pathRewrite: { "^/api": "/api/v1" }, // ← /api/foo → /api/v1/foo 로 변환
     })
   );
 };

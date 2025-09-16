@@ -1,4 +1,5 @@
 import { request } from "../lib/request";
+import { ORDERS } from "../constants/apiRoutes";
 
 // 공용 멱등키 헤더
 const idemHeaders = () => ({
@@ -37,18 +38,18 @@ export const OrdersAPI = {
 
   // ✅ 주문 상세
   get(id) {
-    return request(`/api/orders/${id}`);
+    return request(ORDERS.ID(id));
   },
 
   // ✅ 주문 목록 (페이지/정렬/검색/필터)
   // params: { page, size, status, dateFrom, dateTo, q, sort, order }
   list(params = {}) {
-    return request(`/api/orders${toQS(params)}`);
+    return request(`${ORDERS.ROOT}${toQS(params)}`);
   },
 
   // ✅ 구매 확정(멱등키 권장)
   confirm(id, note) {
-    return request(`/api/orders/${id}/confirm`, {
+    return request(ORDERS.CONFIRM(id), {
       method: "POST",
       headers: idemHeaders(),
       body: note ? { note } : undefined,
