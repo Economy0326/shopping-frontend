@@ -16,8 +16,7 @@ export default function SignupPage() {
     try {
       setLoading(true);
       const r = await AuthAPI.register({ username: form.username, password: form.password });
-      if (!r?.ok) throw new Error(r?.error || "회원가입 실패");
-      toast.success("회원가입 완료! 로그인 해주세요.");
+      await AuthAPI.register({ username: form.username, password: form.password });
       navigate("/");
     } catch (err) {
       toast.error(getAxiosErrorMessage(err, "회원가입 중 오류가 발생했습니다"));
