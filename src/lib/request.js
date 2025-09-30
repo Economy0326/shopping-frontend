@@ -1,49 +1,55 @@
 import axios from "axios";
+import { API_ROOT } from "./env";
 import { AUTH } from "../constants/apiRoutes";
+import { getAccessToken, setAccessToken, clearAccessToken } from "./token";
 
-// 개발(프록시)에서는 "/"로, 배포에서는 REACT_APP_API_BASE 사용
-const BASE =
-  process.env.NODE_ENV === "development"
-    ? "/"                              // 프록시 경유
-    : (process.env.REACT_APP_API_BASE || "/");
-
-// 공용 axios 인스턴스
 export const api = axios.create({
-  baseURL: BASE,
-  withCredentials: true,  // jwt 쿠키 주고받기
-  // ⚠️ Content-Type은 요청별로 넣을 거라 여기선 지정하지 않음
+  baseURL: API_ROOT,      // 예: http://localhost:8080/api/v1
+  withCredentials: true,  // refresh 쿠키 주고받기
 });
 
-// 401 자동 갱신 (쿠키 기반)
+// ====== 요청 인터셉터: Access 토큰 Bearer 헤더 ======
+api.interceptors.request.use((config) => {
+  const t = getAccessToken();
+  if (t) {
+    config.headers = { ...(config.headers || {}), Authorization: `Bearer ${t}` };
+  }
+  return config;
+});
+
+// ====== 응답 인터셉터: 401 → refresh → 재시도 ======
 let refreshing = false;
 let waiters = [];
-const wakeAll = (ok) => {
-  waiters.forEach(({ resolve, reject }) => (ok ? resolve() : reject()));
-  waiters = [];
-};
+const wakeAll = (ok) => { waiters.forEach(({resolve,reject}) => ok?resolve():reject()); waiters = []; };
 
 api.interceptors.response.use(
   (res) => res,
-  async (err) => {
-    const { response, config } = err || {};
-    if (!response) throw err;
+  async (error) => {
+    const { response, config } = error || {};
+    if (!response) throw error;
 
     const status = response.status;
     const url = String(config?.url || "").toLowerCase();
 
-    if (status !== 401 || url.includes("/auth/login") || url.includes("/auth/refresh") || config.__retry) {
-      throw err;
+    // 로그인/리프레시 자체 에러거나 이미 재시도한 요청이면 통과
+    if (status !== 401 || config.__retry || url.includes("/auth/login") || url.includes("/auth/refresh")) {
+      throw error;
     }
 
     if (!refreshing) {
       refreshing = true;
       try {
-        await api.post("AUTH.REFRESH");
+        // ⚠️ 백엔드 실제 경로가 /auth/refresh 인지 /token/refresh 인지 확인하고 AUTH.REFRESH 수정
+        const r = await api.post(AUTH.REFRESH);
+        const newAccess = r?.data?.accessToken;
+        if (!newAccess) throw new Error("No accessToken from refresh");
+        setAccessToken(newAccess);
         refreshing = false;
         wakeAll(true);
       } catch (e) {
         refreshing = false;
         wakeAll(false);
+        clearAccessToken();
         throw e;
       }
     } else {
@@ -54,7 +60,7 @@ api.interceptors.response.use(
   }
 );
 
-// ✅ 통일된 요청 래퍼 (FormData면 Content-Type 자동 처리)
+// ====== 호환용: request 래퍼 (예전 코드 그대로 쓸 수 있게) ======
 export async function request(path, { method = "GET", body, headers, params } = {}) {
   const m = (method || "GET").toUpperCase();
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
@@ -86,14 +92,7 @@ export async function request(path, { method = "GET", body, headers, params } = 
   }
 }
 
-// ✅ 슈가 메서드도 래퍼를 타게 (에러 포맷 일관)
-request.get    = (url, params)        => request(url, { method: "GET", params });
-request.post   = (url, body, headers) => request(url, { method: "POST", body, headers });
-request.put    = (url, body, headers) => request(url, { method: "PUT", body, headers });
-request.patch  = (url, body, headers) => request(url, { method: "PATCH", body, headers });
-request.delete = (url, params)        => request(url, { method: "DELETE", params });
-
-// 에러 메시지 헬퍼 (axios/raw 모두 커버)
+// ====== 호환용: 에러 메시지 헬퍼 ======
 export const getAxiosErrorMessage = (err, fallback = "요청 중 오류가 발생했습니다") => {
   if (err?.payload?.message) return err.payload.message;
   if (err?.payload?.error) return err.payload.error;

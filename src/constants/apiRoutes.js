@@ -1,8 +1,8 @@
-export const API_PREFIX = "/api"; 
+export const API_PREFIX = ""; 
 
 export const AUTH = {
   LOGIN:   `${API_PREFIX}/auth/login`,
-  REFRESH: `${API_PREFIX}/token/refresh`,
+  REFRESH: `${API_PREFIX}/auth/refresh`,
   ME:      `${API_PREFIX}/auth/me`,
   LOGOUT:  `${API_PREFIX}/auth/logout`,
   REGISTER:`${API_PREFIX}/auth/register`,
