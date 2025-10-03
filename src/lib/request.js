@@ -1,7 +1,7 @@
 import axios from "axios";
 import { API_ROOT } from "./env";
 import { AUTH } from "../constants/apiRoutes";
-import { getAccessToken, setAccessToken, clearAccessToken } from "./token";
+import { getAccessToken, setAccessToken, clearAccessToken, getRefreshToken, clearRefreshToken } from "./token";
 
 export const api = axios.create({
   baseURL: API_ROOT,      // 예: http://localhost:8080/api/v1
@@ -11,11 +11,15 @@ export const api = axios.create({
 // ====== 요청 인터셉터: Access 토큰 Bearer 헤더 ======
 api.interceptors.request.use((config) => {
   const t = getAccessToken();
-  if (t) {
+
+  // 로그인/회원가입 요청에는 Authorization 붙이지 않음
+  const url = String(config?.url || "").toLowerCase();
+  if (t && !url.includes("/auth/login") && !url.includes("/auth/register")) {
     config.headers = { ...(config.headers || {}), Authorization: `Bearer ${t}` };
   }
   return config;
 });
+
 
 // ====== 응답 인터셉터: 401 → refresh → 재시도 ======
 let refreshing = false;
@@ -39,8 +43,12 @@ api.interceptors.response.use(
     if (!refreshing) {
       refreshing = true;
       try {
-        // ⚠️ 백엔드 실제 경로가 /auth/refresh 인지 /token/refresh 인지 확인하고 AUTH.REFRESH 수정
-        const r = await api.post(AUTH.REFRESH);
+        // 백엔드 실제 경로 /auth/refresh
+        // 바디로 refreshToken을 요구하는 서버도 커버
+        const rt = getRefreshToken();
+        const payload = rt ? { refreshToken: rt } : undefined;
+        const r = await api.post(AUTH.REFRESH, payload);
+        
         const newAccess = r?.data?.accessToken;
         if (!newAccess) throw new Error("No accessToken from refresh");
         setAccessToken(newAccess);
@@ -50,6 +58,7 @@ api.interceptors.response.use(
         refreshing = false;
         wakeAll(false);
         clearAccessToken();
+        clearRefreshToken();
         throw e;
       }
     } else {

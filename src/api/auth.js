@@ -1,6 +1,6 @@
 import { api } from "../lib/request";
 import { AUTH } from "../constants/apiRoutes";
-import { setAccessToken, clearAccessToken } from "../lib/token";
+import { setAccessToken, setRefreshToken, clearAccessToken } from "../lib/token";
 
 // 필요하면 .env.local로 바꿀 수 있게 유지
 const F = {
@@ -15,6 +15,7 @@ export const AuthAPI = {
     const res = await api.post(AUTH.LOGIN, { [F.id]: username, [F.pw]: password });
     const data = res?.data ?? null;
     if (data?.accessToken) setAccessToken(data.accessToken);
+    if (data?.refreshToken) setRefreshToken(data.refreshToken);
     return data;
   },
 
@@ -25,7 +26,9 @@ export const AuthAPI = {
 
   logout: async () => {
     try { await api.post(AUTH.LOGOUT); }
-    finally { clearAccessToken(); }
+    finally {
+      clearAccessToken();
+    }
   },
 
   register: async (p) => {
