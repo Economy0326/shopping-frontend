@@ -1,30 +1,36 @@
-// src/api/admin/orders.js
 import { request } from "../../lib/request";
+import { ADMIN } from "../../constants/apiRoutes";
 
-const idem = () => ({ "Idempotency-Key": (crypto?.randomUUID?.() || String(Date.now())) });
+const toQS = (params = {}) => {
+  const p = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    p.set(k, String(v));
+  });
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+};
 
 export const AdminOrdersAPI = {
-  // (선택) 운영 목록 조회: 필터/검색 등
-  list: (params) => request.get("/api/admin/orders", { params }),
-
-  depositConfirm: (orderId, body) =>
-    request.post(`/api/admin/orders/${orderId}/deposit-confirm`, body, { headers: idem() }),
-
-  ship: (orderId, body) =>
-    request.post(`/api/admin/orders/${orderId}/ship`, body, { headers: idem() }),
-
-  cancelApprove: (orderId, body) =>
-    request.post(`/api/admin/orders/${orderId}/cancel-approve`, body, { headers: idem() }),
-
-  cancelReject: (orderId, body) =>
-    request.post(`/api/admin/orders/${orderId}/cancel-reject`, body, { headers: idem() }),
-
-  returnApprove: (returnId, body) =>
-    request.post(`/api/admin/returns/${returnId}/approve`, body, { headers: idem() }),
-
-  returnReject: (returnId, body) =>
-    request.post(`/api/admin/returns/${returnId}/reject`, body, { headers: idem() }),
-
-  refundLog: (orderId, body) =>
-    request.post(`/api/admin/orders/${orderId}/refund-log`, body, { headers: idem() }),
+  list(params = {}) {
+    return request(`${ADMIN.ORDERS.ROOT}${toQS(params)}`);
+  },
+  get(id) {
+    return request(ADMIN.ORDERS.ID(id));
+  },
+  confirmDeposit(id) {
+    return request(ADMIN.ORDERS.DEPOSIT(id), { method: "POST" });
+  },
+  ship(id, payload) {
+    return request(ADMIN.ORDERS.SHIP(id), { method: "POST", body: payload });
+  },
+  refund(id, payload) {
+    return request(ADMIN.ORDERS.REFUND(id), { method: "POST", body: payload });
+  },
+  cancelApprove(id) {
+    return request(ADMIN.ORDERS.CANCEL_APPROVE(id), { method: "POST" });
+  },
+  cancelReject(id) {
+    return request(ADMIN.ORDERS.CANCEL_REJECT(id), { method: "POST" });
+  },
 };

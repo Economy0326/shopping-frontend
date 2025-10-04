@@ -1,3 +1,6 @@
-export const idKey = () =>
-  (crypto?.randomUUID?.() ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2) + Date.now().toString(36));
+export const idemHeaders = () => ({
+  "Idempotency-Key":
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+});

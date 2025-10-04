@@ -1,6 +1,19 @@
 import axios from "axios";
 import { E } from "../lib/env";
 
+export async function request(url, options = {}) {
+  const { method = "GET", body, headers } = options;
+  const config = {
+    method,
+    url,
+    headers: { "Content-Type": "application/json", ...(headers || {}) },
+    data: body,
+  };
+  const res = await api(config);
+  return res.data; // 응답 data만 반환
+}
+
+
 export const api = axios.create({
   baseURL: E.API_BASE || "http://localhost:8080",
   withCredentials: true, // JWT 쿠키 주고받기

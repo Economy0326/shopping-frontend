@@ -1,12 +1,10 @@
-import { request } from "../lib/request";
+/* 사용자/주소 API(프로필 수정,기본 배송지 조회,기본 배송지 저장/갱신)) */
+import { api } from "../lib/request";
+import { USERS } from "../constants/apiRoutes";
 
-export const UserAPI = {
-  updateProfile: (payload /* {name, email, phone} */) =>
-    request.put("/api/users/me", payload), // { user }
-
-  getDefaultAddress: () =>
-    request.get("/api/users/default-address"), // { address }
-
-  saveDefaultAddress: ({ receiver, phone, zip, address1, address2 }) =>
-    request.put("/api/users/default-address", { receiver, phone, zip, address1, address2 }), // { address }
+export const UsersAPI = {
+  me: () => api.get(USERS.ME).then(r => r.data),
+  updateProfile: (profile) => api.put(USERS.PROFILE, profile).then(r => r.data),
+  getDefaultAddress: () => api.get(USERS.DEFAULT_ADDR).then(r => r.data),
+  saveDefaultAddress: (addr) => api.put(USERS.DEFAULT_ADDR, addr).then(r => r.data),
 };

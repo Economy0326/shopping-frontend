@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { UserAPI } from "../../api/users";
+import { UsersAPI } from "../../api/users";
 import { AuthAPI } from "../../api/auth";
 import { getAxiosErrorMessage } from "../../lib/request";
 
@@ -32,7 +32,7 @@ export default function PasswordChangePage() {
         });
         setDone(true);
       } else {
-        await UserAPI.changePassword({
+        await UsersAPI.changePassword({
           currentPassword: form.current,
           newPassword: form.next,
           confirm: form.confirm,

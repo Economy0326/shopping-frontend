@@ -1,15 +1,13 @@
+/* 주문 후 처리 API(주문 목록, 주문 상세, 구매 확정, 주문 취소 요청(출고 전), 반품 신청(수령 후), (선택) 배송조회) */
 import { request } from "../lib/request";
 import { ORDERS } from "../constants/apiRoutes";
+import { idemHeaders } from "../lib/idempotency";
 
-// 공용 멱등키 헤더
-const idemHeaders = () => ({
-  "Idempotency-Key":
-    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-});
-
-// 쿼리스트링 헬퍼(GET에 body 넣지 않기)
+/**
+ * 쿼리스트링 헬퍼
+ * GET 요청에 body 대신 URLSearchParams 사용
+ */
+// 쿼리스트링
 const toQS = (params = {}) => {
   const p = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
@@ -21,33 +19,26 @@ const toQS = (params = {}) => {
 };
 
 export const OrdersAPI = {
-  // 체크아웃(주문 생성, 무통장 입금 대기)
-  // 최종 스펙이 /api/checkout 이므로 여기로 정리
+  // 주문 생성 
   checkout(payload) {
-    return request(`/api/checkout`, {
+    return request(ORDERS.ROOT, {
       method: "POST",
-      body: payload,
       headers: idemHeaders(),
+      body: payload,
     });
   },
 
-  // (호환용) 과거 코드에서 create()를 쓰고 있다면 checkout으로 라우팅
-  create(order) {
-    return this.checkout(order);
-  },
-
-  // ✅ 주문 상세
-  get(id) {
-    return request(ORDERS.ID(id));
-  },
-
-  // ✅ 주문 목록 (페이지/정렬/검색/필터)
-  // params: { page, size, status, dateFrom, dateTo, q, sort, order }
+  // 주문 목록
   list(params = {}) {
     return request(`${ORDERS.ROOT}${toQS(params)}`);
   },
 
-  // ✅ 구매 확정(멱등키 권장)
+  // 주문 상세
+  get(id) {
+    return request(ORDERS.ID(id));
+  },
+
+  // 구매 확정
   confirm(id, note) {
     return request(ORDERS.CONFIRM(id), {
       method: "POST",
@@ -56,10 +47,26 @@ export const OrdersAPI = {
     });
   },
 
-  // ❌ 서버 상태 임의 변경 PATCH는 스펙에서 제외 (상태머신은 전용 액션으로)
-  // patch(id, patch) { ... }  // 제거
+  // 주문 취소 요청(출고 전) — payload: { orderId, reason, memo? }
+  cancelRequest(payload) {
+    return request(ORDERS.CANCEL(payload.orderId), {
+      method: "POST",
+      headers: idemHeaders(),
+      body: { reason: payload.reason, memo: payload.memo ?? "" },
+    });
+  },
 
-  // ❌ listMine/listAdmin 커스텀 파라미터는 삭제
-  //  - 본인 주문은 Auth로 식별
-  //  - 어드민 목록은 /api/admin/... 별도 래퍼에서
+  // 반품 신청(수령 후) — payload: { orderId, reason, memo? }
+  returnRequest(payload) {
+    return request(ORDERS.RETURN(payload.orderId), {
+      method: "POST",
+      headers: idemHeaders(),
+      body: { reason: payload.reason, memo: payload.memo ?? "" },
+    });
+  },
+
+  // (선택) 배송 조회 — 서버에서 제공할 때만 사용
+  track(id) {
+    return request(ORDERS.TRACK(id));
+  },
 };

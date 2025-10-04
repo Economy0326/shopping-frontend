@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { Link } from "react-router-dom";
 import { getAxiosErrorMessage } from "../../../lib/request";
-import { UserAPI } from "../../../api/users";
+import { UsersAPI } from "../../../api/users";
 
 export default function ProfilePanel() {
   const { user, setUser, ready } = useAuth();
@@ -43,7 +43,7 @@ export default function ProfilePanel() {
   const onSave = async () => {
     try {
       setSaving(true);
-      const res = await UserAPI.updateProfile({
+      const res = await UsersAPI.updateProfile({
         name: form.name,
         phone: form.phone,
         address: form.address,

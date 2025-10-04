@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelShell } from "./_shared";
-import { CancellationsAPI } from "../../../api/cancellations";
 import { getAxiosErrorMessage } from "../../../lib/request";
 import { printCancellation } from "../../../lib/print";
+import { OrdersAPI } from "../../../api/orders";
 
 function formatWon(n) {
   const v = Number(n) || 0;
@@ -105,10 +105,19 @@ export default function CancellationsPanel() {
   const load = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await CancellationsAPI.list({ page, size: meta.size || 10, sort: "createdAt", order: "desc" });
-      const rows = res?.data || [];
+
+      const res = await OrdersAPI.list({
+        page,
+        size: meta.size || 10,
+        sort: "createdAt",
+        order: "desc",
+        status: "CANCELLED", //
+      });
+
+      const rows = res?.content ?? res ?? [];
       const m = res?.meta || { page, size: 10, hasNext: false };
-      setList(page === 1 ? rows : [...list, ...rows]);
+
+      setList(prev => (page === 1 ? rows : [...prev, ...rows]));
       setMeta(m);
       setErr("");
     } catch (e) {

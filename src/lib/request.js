@@ -69,7 +69,7 @@ api.interceptors.response.use(
   }
 );
 
-// ====== 호환용: request 래퍼 (예전 코드 그대로 쓸 수 있게) ======
+// ====== 호환용: request 래퍼 
 export async function request(path, { method = "GET", body, headers, params } = {}) {
   const m = (method || "GET").toUpperCase();
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;

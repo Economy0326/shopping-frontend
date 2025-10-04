@@ -1,9 +1,12 @@
-import { request } from "../lib/request";
-import { PRODUCTS } from "../constants/apiRoutes";
+/* 카탈로그 API(상품 목록, 상품 상세, 카테고리 목록) */
+import { api } from "../lib/request";
+import { PRODUCTS, CATEGORIES } from "../constants/apiRoutes";
 
-export const ProductAPI = {
-  // list(params) → { items, total }
-  list:  (params) => request.get(PRODUCTS.LIST, params),
-  // detail(id) → { id, name, price, images, isLook, sizeGuideMd, productInfoMd, lookMd, ... }
-  detail:(id)     => request.get(PRODUCTS.DETAIL(id)),
+export const ProductsAPI = {
+  list: (params) => api.get(PRODUCTS.LIST, { params }).then(r => r.data),
+  byId: (id) => api.get(PRODUCTS.DETAIL(id)).then(r => r.data),
+};
+
+export const CategoriesAPI = {
+  list: () => api.get(CATEGORIES.LIST).then(r => r.data),
 };

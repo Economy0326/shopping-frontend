@@ -1,35 +1,32 @@
-import { api } from "../../lib/request";       // axios 인스턴스 (withCredentials: true)
-import { request } from "../../lib/request";   // JSON 요청용
+import { request } from "../../lib/request";
+import { ADMIN } from "../../constants/apiRoutes";
 
-// 멱등키 (선택)
-const idem = () => ({
-  "Idempotency-Key":
-    (typeof crypto !== "undefined" && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-});
+const toQS = (params = {}) => {
+  const p = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    p.set(k, String(v));
+  });
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+};
 
 export const AdminProductsAPI = {
-  // 이미지 업로드 (multipart) → { url, name }
-  // 주의: multipart는 request() 대신 api.post() 사용(헤더 자동 설정)
-  uploadImage: async (file) => {
-    const form = new FormData();
-    form.append("file", file);
-    const { data } = await api.post("ADMIN.UPLOADS", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return data; // { url, name }
+  list(params = {}) {
+    return request(`${ADMIN.PRODUCTS.ROOT}${toQS(params)}`);
   },
-
-  // 상품 생성
-  create: (payload) =>
-    request.post("/api/admin/products", payload, idem()),
-
-  // 상품 수정
-  update: (id, payload) =>
-    request.put(`/api/admin/products/${id}`, payload, idem()),
-
-  // (선택) 목록/상세 - 필요시 사용
-  list: (params) => request.get("/api/admin/products", params),
-  detail: (id) => request.get(`/api/admin/products/${id}`),
+  get(id) {
+    return request(ADMIN.PRODUCTS.ID(id));
+  },
+  create(payload) {
+    return request(ADMIN.PRODUCTS.ROOT, { method: "POST", body: payload });
+  },
+  update(id, payload) {
+    return request(ADMIN.PRODUCTS.ID(id), { method: "PUT", body: payload });
+  },
+  upload(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request(ADMIN.UPLOADS, { method: "POST", body: fd });
+  },
 };
