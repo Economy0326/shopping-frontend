@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "features/auth/context/AuthContext";
 import { Link } from "react-router-dom";
-import { getAxiosErrorMessage } from "shared/api/request";
+import { getApiErrorMessage } from "shared/api/request";
 import { UsersAPI } from "features/users/api/users";
 
 export default function ProfilePanel() {
@@ -70,7 +70,7 @@ export default function ProfilePanel() {
 
       alert("저장되었습니다.");
     } catch (err) {
-      alert(getAxiosErrorMessage(err));
+      alert(getApiErrorMessage(err));
     } finally {
       setSaving(false);
     }

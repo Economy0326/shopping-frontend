@@ -1,6 +1,6 @@
 import React from "react";
 import { AuthAPI } from "features/auth/api/auth.api";
-import { getAxiosErrorMessage } from "shared/api/request";
+import { getApiErrorMessage } from "shared/api/request";
 
 export default function PasswordResetRequestPage() {
   const [email, setEmail] = React.useState("");
@@ -15,7 +15,7 @@ export default function PasswordResetRequestPage() {
       await AuthAPI.resetRequest(email); // 항상 성공처럼 처리(계정 유추 방지)
       setDone(true);
     } catch (err) {
-      console.error(getAxiosErrorMessage(err));
+      console.error(getApiErrorMessage(err));
       setDone(true);
     } finally {
       setSaving(false);

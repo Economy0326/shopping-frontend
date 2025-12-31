@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelShell } from "features/mypage/panels/_shared";
-import { getAxiosErrorMessage } from "shared/api/request";
+import { getApiErrorMessage } from "shared/api/request";
 import { printCancellation } from "shared/utils/print";
 import { OrdersAPI } from "features/orders/api/orders.api";
 
@@ -111,7 +111,7 @@ export default function CancellationsPanel() {
         size: meta.size || 10,
         sort: "createdAt",
         order: "desc",
-        status: "CANCELLED", //
+        status: "CANCELED",
       });
 
       const rows = res?.content ?? res ?? [];
@@ -121,13 +121,13 @@ export default function CancellationsPanel() {
       setMeta(m);
       setErr("");
     } catch (e) {
-      setErr(getAxiosErrorMessage(e));
+      setErr(getApiErrorMessage(e));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(1); /* 최초 */ // eslint-disable-next-line
+  useEffect(() => { load(1); // 첫 로드
   }, []);
 
   const handlePrint = (cancel) => {
@@ -147,7 +147,7 @@ export default function CancellationsPanel() {
         ) : (
           <div className="flex flex-col gap-4">
             {list.map((c) => (
-              <CancellationCard key={c.cancellationId || c.id} cancel={c} onPrint={handlePrint} />
+              <CancellationCard key={c.orderId || c.id} cancel={c} onPrint={handlePrint} />
             ))}
           </div>
         )}

@@ -1,180 +1,110 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 
 const CartContext = createContext(null);
+// useCart -> value를 꺼내 쓰는 훅
 export const useCart = () => useContext(CartContext);
 
-// 안전 파서
-function safeParse(json, fallback) {
+function load(key) {
   try {
-    if (json == null || json === "") return fallback;
-    return JSON.parse(json);
+    return JSON.parse(localStorage.getItem(key) || "[]");
   } catch {
-    return fallback;
+    return [];
   }
 }
 
-// 항상 "배열"로 정규화
-function toArray(v) {
-  if (Array.isArray(v)) return v;
-  // 예전 형태 지원: { items: [...] }
-  if (v && typeof v === "object" && Array.isArray(v.items)) return v.items;
-  return [];
+// 로컬스토리지에 장바구니 저장
+function save(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
-/** 선택 옵션 정규화 */
-function normalizeSelectedOptions(product, selectedOptions) {
-  const src = selectedOptions || product?.selectedOptions || product?.selected || {};
-  const Size  = src.Size  ?? src.size  ?? product?.selectedSize  ?? product?.size  ?? null;
-  const Color = src.Color ?? src.color ?? product?.selectedColor ?? product?.color ?? null;
-  const out = {};
-  if (Size  != null) out.Size  = String(Size);
-  if (Color != null) out.Color = String(Color);
-  return out;
-}
-
-/** 라인키 생성 */
-function makeLineKey(product, selectedOptions = {}, sku) {
-  if (sku) return String(sku);
-  const pid   = String(product?.id ?? "");
-  const opts  = normalizeSelectedOptions(product, selectedOptions);
-  const size  = opts.Size  ?? "";
-  const color = opts.Color ?? "";
-  return `${pid}:${size}:${color}`;
-}
-
-/** 엔트리의 라인키 */
-function lineKeyOfEntry(entry) {
-  return entry.sku || makeLineKey(entry.product, entry.selectedOptions);
-}
-
+// value를 전달하는 컴포넌트
 export function CartProvider({ children, username }) {
-  const key = (username && String(username).trim()) || "guest";
-  const storageKey = `cart_${key}`;
+  const key = username ? `cart_${username}` : "cart_guest";
+  const [cart, setCart] = useState([]);
 
-  const [cart, setCart] = useState([]);   // 상태는 항상 "배열"만 유지
-  const [loaded, setLoaded] = useState(false);
-
-  // 로드
+  // load
   useEffect(() => {
-    if (username === undefined) return; // 사용자 미정 상태
-    const raw    = localStorage.getItem(storageKey);
-    const parsed = safeParse(raw, []);
-    const arr    = toArray(parsed);
-    setCart(arr);
-    // 저장 구조가 배열이 아니었다면 덮어써서 복구
-    if (!Array.isArray(parsed)) {
-      localStorage.setItem(storageKey, JSON.stringify(arr));
-    }
-    setLoaded(true);
-  }, [storageKey, username]);
+    setCart(load(key));
+  }, [key]);
 
-  // 로그인 시: guest → user 병합 (배열 보장으로 변경)
+  // save
   useEffect(() => {
-    if (!username) return;
-    const guestArr = toArray(safeParse(localStorage.getItem("cart_guest"), []));
-    if (guestArr.length === 0) return;
+    save(key, cart);
+  }, [key, cart]);
 
-    const userArr  = toArray(safeParse(localStorage.getItem(`cart_${username}`), []));
-    const merged   = [...userArr];
-
-    guestArr.forEach(g => {
-      const gKey = lineKeyOfEntry(g);
-      const i = merged.findIndex(u => lineKeyOfEntry(u) === gKey);
-      if (i >= 0) {
-        merged[i] = { ...merged[i], quantity: (merged[i].quantity ?? 1) + (g.quantity ?? 1) };
-      } else {
-        merged.push(g);
+  const addToCart = useCallback((product, qty = 1, options = {}) => {
+    // prev -> 이전 상태 기반 업데이트
+    setCart((prev) => {
+      // id -> 같은 상품이라도 옵션 다르면 다른 줄 취급
+      const id = `${product.id}:${options.Size || ""}:${options.Color || ""}`;
+      // found -> 기존에 같은 상품+옵션이 있는지 확인
+      const found = prev.find((it) => it.key === id);
+      if (found) {
+        return prev.map((it) =>
+          it.key === id
+            ? { ...it, qty: it.qty + qty }
+            : it
+        );
       }
-    });
-
-    setCart(merged);
-    localStorage.removeItem("cart_guest");
-  }, [username]);
-
-  // 저장 (항상 배열로 저장)
-  useEffect(() => {
-    if (!loaded || username === undefined) return;
-    localStorage.setItem(storageKey, JSON.stringify(toArray(cart)));
-  }, [cart, loaded, username, storageKey]);
-
-  // 액션들
-  const addToCart = useCallback((product, qty = 1, selectedOptions = {}, sku) => {
-    const n = Math.max(1, Number(qty) || 1);
-    const lineKey = makeLineKey(product, selectedOptions, sku);
-
-    setCart(prev => {
-      const list = toArray(prev);
-      const idx = list.findIndex(it => lineKeyOfEntry(it) === lineKey);
-      if (idx >= 0) {
-        const next = [...list];
-        next[idx] = { ...next[idx], quantity: (next[idx].quantity ?? 1) + n };
-        return next;
-      }
-      const normalizedOpts = normalizeSelectedOptions(product, selectedOptions);
       return [
-        ...list,
-        {
-          product,
-          quantity: n,
-          selectedOptions: normalizedOpts,
-          sku: sku || product?.sku,
-        },
+        ...prev,
+        { key: id, product, qty, options },
       ];
     });
   }, []);
 
-  const removeFromCart = useCallback((lineKeyOrEntry) => {
-    setCart(prev => {
-      const list = toArray(prev);
-      const key =
-        typeof lineKeyOrEntry === "string"
-          ? lineKeyOrEntry
-          : lineKeyOfEntry(lineKeyOrEntry);
-      return list.filter(it => lineKeyOfEntry(it) !== key);
-    });
+  const removeFromCart = useCallback((key) => {
+    setCart((prev) => prev.filter((it) => it.key !== key));
   }, []);
 
-  const changeQuantity = useCallback((lineKeyOrEntry, qty) => {
-    const n = Math.max(1, Number(qty) || 1);
-    setCart(prev => {
-      const list = toArray(prev);
-      const key =
-        typeof lineKeyOrEntry === "string"
-          ? lineKeyOrEntry
-          : lineKeyOfEntry(lineKeyOrEntry);
-      return list.map(it =>
-        lineKeyOfEntry(it) === key ? { ...it, quantity: n } : it
-      );
-    });
+  const changeQty = useCallback((key, qty) => {
+    setCart((prev) =>
+      prev.map((it) =>
+        it.key === key ? { ...it, qty: Math.max(1, qty) } : it
+      )
+    );
   }, []);
 
-  const cleanCart = useCallback(() => {
-    setCart([]);
-    localStorage.setItem(storageKey, JSON.stringify([]));
-  }, [storageKey]);
+  const clearCart = useCallback(() => setCart([]), []);
 
-  // 파생값 (배열 전제)
-  const count = useMemo(
-    () => toArray(cart).reduce((s, it) => s + (it.quantity || 1), 0),
-    [cart]
-  );
   const total = useMemo(
-    () => toArray(cart).reduce(
-      (sum, it) => sum + (Number(it?.product?.price) || 0) * (it?.quantity || 1),
-      0
-    ),
+    () =>
+      cart.reduce(
+        (sum, it) => sum + it.qty * (it.product.price || 0),
+        0
+      ),
     [cart]
   );
 
-  const value = useMemo(() => ({
-    cart: toArray(cart),
-    addToCart,
-    removeFromCart,
-    changeQuantity,
-    cleanCart,
-    count,
-    total,
-  }), [cart, addToCart, removeFromCart, changeQuantity, cleanCart, count, total]);
+  const count = useMemo(
+    () => cart.reduce((s, it) => s + it.qty, 0),
+    [cart]
+  );
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  // 공유 데이터 패키지 (UseMemo로 감싸서 불필요한 리렌더링 방지)
+  const value = useMemo(
+    () => ({
+      cart,
+      addToCart,
+      removeFromCart,
+      changeQty,
+      clearCart,
+      total,
+      count,
+    }),
+    [cart, addToCart, removeFromCart, changeQty, clearCart, total, count]
+  );
+
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+    </CartContext.Provider>
+  );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { AuthAPI } from "features/auth/api/auth.api";
-import { getAxiosErrorMessage } from "shared/api/request";
+import { getApiErrorMessage } from "shared/api/request";
 import { clearToken } from "shared/api/tokenMemory";
 
 export default function SignupPage() {
@@ -40,7 +40,7 @@ export default function SignupPage() {
       if (status === 409) {
         toast.error("이미 가입된 계정입니다.");
       } else {
-        toast.error(getAxiosErrorMessage(err, "회원가입 중 오류가 발생했습니다"));
+        toast.error(getApiErrorMessage(err, "회원가입 중 오류가 발생했습니다"));
       }
     } finally {
       setLoading(false);

@@ -17,11 +17,6 @@ export function renderStars(rating) {
   return stars.join("");
 }
 
-// 가격 문자열에서 숫자만 뽑아 정수로 변환 (₩29,000 -> 29000)
-export function parsePrice(priceString) {
-  return parseInt(priceString.replace(/[^\d]/g, ""), 10);
-}
-
 // 리뷰별 반응 함수
 export function getRatingReaction(rating) {
             if (rating >= 4.5) return "꼭 사야돼";

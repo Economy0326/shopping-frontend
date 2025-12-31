@@ -39,6 +39,9 @@ import AdminGuard from "features/admin/routes/AdminGuard";
 import AdminOrdersPage from "features/admin/pages/AdminOrdersPage";
 import AdminProductNew from "features/admin/pages/AdminProductNew";
 
+// 환불
+import AdminReturnsPage from "features/returns/pages/AdminReturnsPage";
+
 function WithLayout(props) {
   return (
     <Layout {...props}>
@@ -177,6 +180,14 @@ export default function AppRoutes({
           element={
             <AdminGuard>
               <AdminProductNew />
+            </AdminGuard>
+          }
+        />
+        <Route
+          path="admin/returns"
+          element={
+            <AdminGuard>
+              <AdminReturnsPage />
             </AdminGuard>
           }
         />
