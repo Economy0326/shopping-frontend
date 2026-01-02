@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null); // 현재 사용자
-  const [ready, setReady] = useState(true); // 인증 초기화 완료 여부
+  const [ready] = useState(true);
   const [loading, setLoading] = useState(false);  // 로그인/회원가입 중 로딩
   const [authRequired, setAuthRequired] = useState(false);  // 재로그인 필요 여부
 
@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
     return off;
   }, []);
 
-  // 로그인
+  // 로그인 (email 기반)
   const login = useCallback(async ({ email, password }) => {
     if (!email || !password) {
       toast.error("이메일과 비밀번호를 입력해주세요.");
@@ -89,6 +89,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
       setUser, // 관리자 강제 변경용
+      setAuthRequired, // authRequired 리셋용
     }),
     [user, ready, loading, authRequired, login, logout]
   );

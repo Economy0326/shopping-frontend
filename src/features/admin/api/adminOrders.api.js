@@ -12,12 +12,12 @@ export const AdminOrdersAPI = {
     return request(ADMIN.ORDERS.ID(id));
   },
 
-  // POST /admin/orders/{id}/deposit-confirm
+  // POST /admin/orders/{id}/deposit-confirm (memo optional)
   depositConfirm(id, payload) {
     return request(ADMIN.ORDERS.DEPOSIT(id), { method: "POST", body: payload });
   },
 
-  // POST /admin/orders/{id}/ship
+  // POST /admin/orders/{id}/ship (carrier/trackingNo)
   ship(id, payload) {
     return request(ADMIN.ORDERS.SHIP(id), { method: "POST", body: payload });
   },
@@ -25,15 +25,5 @@ export const AdminOrdersAPI = {
   // POST /admin/orders/{id}/refund-log
   refund(id, payload) {
     return request(ADMIN.ORDERS.REFUND(id), { method: "POST", body: payload });
-  },
-
-  // POST /admin/orders/{id}/cancel-approve
-  cancelApprove(id) {
-    return request(ADMIN.ORDERS.CANCEL_APPROVE(id), { method: "POST" });
-  },
-
-  // POST /admin/orders/{id}/cancel-reject
-  cancelReject(id) {
-    return request(ADMIN.ORDERS.CANCEL_REJECT(id), { method: "POST" });
   },
 };

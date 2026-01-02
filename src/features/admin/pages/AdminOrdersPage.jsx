@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { request } from "shared/api/request";
+import { Link } from "react-router-dom";
+import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
-import { getApiErrorMessage } from "shared/api/request";
-import { statusLabel, statusColor } from "shared/utils/constants";
 
 function formatWon(n) {
-  const v = Number(n) || 0;
-  return v.toLocaleString() + "원";
+  return (Number(n) || 0).toLocaleString() + "원";
 }
 
-function StatusBadge({ status }) {
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(status)}`}>
-      {statusLabel(status)}
-    </span>
-  );
+function dt(s) {
+  if (!s) return "-";
+  try {
+    return new Date(s).toLocaleString();
+  } catch {
+    return s;
+  }
+}
+
+function isExpiredAwaiting(order) {
+  if (!order?.expiresAt) return false;
+  if (order?.status !== "AWAITING_DEPOSIT") return false;
+  return new Date(order.expiresAt).getTime() < Date.now();
 }
 
 export default function AdminOrdersPage() {
@@ -22,17 +27,37 @@ export default function AdminOrdersPage() {
   const [meta, setMeta] = useState({ page: 1, size: 20, total: 0 });
   const [loading, setLoading] = useState(false);
 
-  // 액션 UI
-  const [memo, setMemo] = useState({});
-  const [trackingNo, setTrackingNo] = useState({});
-  const [refundMemo, setRefundMemo] = useState({});
+  // UI filter states
+  const [status, setStatus] = useState(""); // "", "AWAITING_DEPOSIT", ...
+  const [onlyExpired, setOnlyExpired] = useState(false);
+  const [q, setQ] = useState(""); // 주문ID/이메일 검색
 
   const load = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await request(ADMIN.ORDERS.ROOT, { params: { page, size: meta.size } });
-      setList(res?.data ?? []);
-      setMeta(res?.meta ?? { page, size: meta.size, total: 0 });
+
+      // 서버가 관리자 목록에서 필터를 지원한다면 params로 그대로 넘기면 되고,
+      // 지원 안 하면 아래처럼 프론트 필터로도 최소 운영 가능.
+      const params = {
+        page,
+        size: meta.size,
+        ...(status ? { status } : {}),
+        ...(q.trim() ? { q: q.trim() } : {}),
+        // onlyExpired는 백엔드 지원 여부 애매해서 프론트에서 처리
+      };
+
+      const res = await request(ADMIN.ORDERS.ROOT, { params });
+
+      const rows = res?.data ?? [];
+      const m = res?.meta ?? { page, size: meta.size, total: 0 };
+
+      // 프론트 만료 필터(선택)
+      const filtered = onlyExpired
+        ? rows.filter((o) => isExpiredAwaiting(o))
+        : rows;
+
+      setList(filtered);
+      setMeta(m);
     } catch (e) {
       alert(getApiErrorMessage(e, "주문 목록 로드 실패"));
     } finally {
@@ -45,147 +70,166 @@ export default function AdminOrdersPage() {
     // eslint-disable-next-line
   }, []);
 
-  const hasNext = useMemo(() => meta.page * meta.size < meta.total, [meta]);
+  // 필터 변경 시 1페이지부터 재조회
+  useEffect(() => {
+    load(1);
+    // eslint-disable-next-line
+  }, [status, onlyExpired]);
 
-  const depositConfirm = async (id) => {
+  const hasNext = useMemo(
+    () => (meta.page || 1) * (meta.size || 20) < (meta.total || 0),
+    [meta]
+  );
+
+  const depositConfirm = async (order) => {
+    const expired = isExpiredAwaiting(order);
+    const can = order.status === "AWAITING_DEPOSIT" && !expired;
+    if (!can) return;
+
+    if (!window.confirm("입금 확인 처리할까요?")) return;
+
     try {
-      await request(ADMIN.ORDERS.DEPOSIT(id), {
-        method: "POST",
-        body: memo[id] ? { memo: memo[id] } : undefined,
-      });
-      alert("입금 확인 처리 완료");
-      await load(meta.page);
+      await request(ADMIN.ORDERS.DEPOSIT(order.id), { method: "POST" });
+      alert("입금 확인 완료");
+      await load(meta.page || 1);
     } catch (e) {
       alert(getApiErrorMessage(e));
     }
   };
 
-  const ship = async (id) => {
-    const no = String(trackingNo[id] ?? "").trim();
-    if (!no) return alert("송장번호를 입력하세요.");
-
-    try {
-      await request(ADMIN.ORDERS.SHIP(id), {
-        method: "POST",
-        body: {
-          carrier: "KOREA_POST", // 직접택배 운영 + 우체국 고정
-          trackingNo: no,
-        },
-      });
-      alert("발송 등록 완료");
-      await load(meta.page);
-    } catch (e) {
-      alert(getApiErrorMessage(e));
-    }
-  };
-
-  const refund = async (order) => {
-    // 명세: Full refund only, amount === amounts.grandTotal -> 부분 환불 불가
-    if (!["CANCELED", "DELIVERED"].includes(order.status)) {
-      return alert("환불은 CANCELED 또는 DELIVERED 상태에서만 가능합니다.");
-    }
-
-    try {
-      await request(ADMIN.ORDERS.REFUND(order.id), {
-        method: "POST",
-        body: {
-          amount: order?.amounts?.grandTotal,
-          memo: refundMemo[order.id] ?? "",
-        },
-      });
-      alert("환불 로그 기록 완료");
-      await load(meta.page);
-    } catch (e) {
-      alert(getApiErrorMessage(e));
-    }
+  const onSearch = (e) => {
+    e.preventDefault();
+    load(1);
   };
 
   return (
-    <main className="max-w-6xl mx-auto p-6">
+    <main className="max-w-7xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">관리자 · 주문 관리</h1>
 
-      {loading && <p>로딩 중…</p>}
+      {/* 필터 바 */}
+      <form
+        onSubmit={onSearch}
+        className="flex flex-col md:flex-row gap-2 md:items-center mb-4"
+      >
+        <select
+          className="border rounded px-2 py-2 text-sm"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="">전체 상태</option>
+          <option value="AWAITING_DEPOSIT">AWAITING_DEPOSIT</option>
+          <option value="DEPOSIT_CONFIRMED">DEPOSIT_CONFIRMED</option>
+          <option value="SHIPPED">SHIPPED</option>
+          <option value="DELIVERED">DELIVERED</option>
+          <option value="CANCELED">CANCELED</option>
+        </select>
+
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={onlyExpired}
+            onChange={(e) => setOnlyExpired(e.target.checked)}
+          />
+          만료된 입금대기만
+        </label>
+
+        <input
+          className="border rounded px-2 py-2 text-sm flex-1"
+          placeholder="주문ID 또는 주문자 이메일 검색"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+
+        <button className="border rounded px-4 py-2 text-sm hover:bg-gray-50">
+          검색
+        </button>
+      </form>
+
+      {loading && <p className="text-sm text-gray-500 mb-2">로딩 중…</p>}
 
       <div className="overflow-x-auto">
-        <table className="w-full border text-sm min-w-[980px]">
-          <thead>
-            <tr className="bg-gray-50">
+        <table className="w-full border text-sm min-w-[1280px]">
+          <thead className="bg-gray-50">
+            <tr>
               <th className="border p-2">주문ID</th>
-              <th className="border p-2">상태</th>
+              <th className="border p-2">주문자</th>
+              <th className="border p-2">대표상품</th>
               <th className="border p-2">금액</th>
+              <th className="border p-2">상태</th>
+              <th className="border p-2">주문/만료</th>
               <th className="border p-2">입금확인</th>
-              <th className="border p-2">발송등록</th>
-              <th className="border p-2">환불로그</th>
             </tr>
           </thead>
-          <tbody>
-            {list.map((o) => (
-              <tr key={o.id}>
-                <td className="border p-2 font-mono">{o.id}</td>
-                <td className="border p-2">
-                  <StatusBadge status={o.status} />
-                </td>
-                <td className="border p-2">{formatWon(o?.amounts?.grandTotal)}</td>
 
-                <td className="border p-2">
-                  <div className="flex gap-2">
-                    <input
-                      className="border rounded px-2 py-1 w-40"
-                      placeholder="memo(선택)"
-                      value={memo[o.id] ?? ""}
-                      onChange={(e) => setMemo((m) => ({ ...m, [o.id]: e.target.value }))}
-                    />
+          <tbody>
+            {list.map((o) => {
+              const expired = isExpiredAwaiting(o);
+              const canDepositConfirm =
+                o.status === "AWAITING_DEPOSIT" && !expired;
+
+              return (
+                <tr key={o.id}>
+                  <td className="border p-2 font-mono">
+                    <Link
+                      to={`/admin/orders/${o.id}`}
+                      className="underline"
+                      title="주문 상세로"
+                    >
+                      {o.id}
+                    </Link>
+                  </td>
+
+                  <td className="border p-2">
+                    <div className="text-xs text-gray-500">
+                      {o?.buyer?.email ?? "-"}
+                    </div>
+                    <div className="font-semibold">{o?.buyer?.name ?? "-"}</div>
+                  </td>
+
+                  <td className="border p-2">
+                    {o?.representativeItem?.name ?? "-"}
+                  </td>
+
+                  <td className="border p-2 text-right">
+                    {formatWon(o?.amounts?.grandTotal)}
+                  </td>
+
+                  <td className="border p-2">
+                    <div className="flex flex-col gap-1">
+                      <span>{o.status}</span>
+                      {expired && (
+                        <span className="text-xs font-semibold text-rose-600">
+                          자동취소 예정/취소됨
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="border p-2 text-xs">
+                    <div>주문: {dt(o.createdAt)}</div>
+                    <div className="text-gray-500">만료: {dt(o.expiresAt)}</div>
+                  </td>
+
+                  <td className="border p-2">
                     <button
-                      className="border rounded px-2 py-1 hover:bg-gray-50"
-                      onClick={() => depositConfirm(o.id)}
+                      disabled={!canDepositConfirm}
+                      onClick={() => depositConfirm(o)}
+                      className={`px-3 py-1 rounded border ${
+                        canDepositConfirm
+                          ? "hover:bg-gray-50"
+                          : "opacity-40 cursor-not-allowed"
+                      }`}
                     >
                       입금확인
                     </button>
-                  </div>
-                </td>
-
-                <td className="border p-2">
-                  <div className="flex gap-2">
-                    <input
-                      className="border rounded px-2 py-1 w-40 font-mono"
-                      placeholder="송장번호"
-                      value={trackingNo[o.id] ?? ""}
-                      onChange={(e) => setTrackingNo((m) => ({ ...m, [o.id]: e.target.value }))}
-                    />
-                    <button
-                      className="border rounded px-2 py-1 hover:bg-gray-50"
-                      onClick={() => ship(o.id)}
-                    >
-                      발송등록
-                    </button>
-                  </div>
-                </td>
-
-                <td className="border p-2">
-                  <div className="flex gap-2">
-                    <input
-                      className="border rounded px-2 py-1 w-40"
-                      placeholder="환불 memo(선택)"
-                      value={refundMemo[o.id] ?? ""}
-                      onChange={(e) => setRefundMemo((m) => ({ ...m, [o.id]: e.target.value }))}
-                    />
-                    <button
-                      className="border rounded px-2 py-1 hover:bg-gray-50"
-                      onClick={() => refund(o)}
-                    >
-                      환불기록
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Full refund only: {formatWon(o?.amounts?.grandTotal)}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
 
             {list.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="p-4 text-center text-gray-500">
+                <td colSpan={7} className="p-6 text-center text-gray-500">
                   주문이 없습니다.
                 </td>
               </tr>
@@ -197,7 +241,7 @@ export default function AdminOrdersPage() {
       {hasNext && (
         <button
           onClick={() => load((meta.page || 1) + 1)}
-          className="mt-4 w-full py-2 border"
+          className="mt-4 w-full py-2 border hover:bg-gray-50"
         >
           다음 페이지
         </button>

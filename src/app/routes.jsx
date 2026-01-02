@@ -36,11 +36,9 @@ import PasswordResetRequestPage from "features/auth/pages/PasswordResetRequestPa
 
 // 관리자
 import AdminGuard from "features/admin/routes/AdminGuard";
+import AdminOrderDetailPage from "features/admin/pages/AdminOrderDetailPage";
 import AdminOrdersPage from "features/admin/pages/AdminOrdersPage";
 import AdminProductNew from "features/admin/pages/AdminProductNew";
-
-// 환불
-import AdminReturnsPage from "features/returns/pages/AdminReturnsPage";
 
 function WithLayout(props) {
   return (
@@ -167,6 +165,14 @@ export default function AppRoutes({
         <Route path="qna/notice/:id" element={<NoticeDetailPage />} />
 
         {/* 관리자 */}
+        <Route
+          path="admin/orders/:id"
+          element={
+            <AdminGuard>
+              <AdminOrderDetailPage />
+            </AdminGuard>
+          }
+        />
         <Route
           path="admin/orders"
           element={

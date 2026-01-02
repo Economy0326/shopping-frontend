@@ -27,10 +27,10 @@ export const AuthAPI = {
   },
 
   // POST /auth/register
-  async register({ email, password, name }) {
+  async register({ email, password, username }) {
     return request(AUTH.REGISTER, {
       method: "POST",
-      body: { email, password, name },
+      body: { email, password, username },
     });
   },
 
@@ -39,6 +39,23 @@ export const AuthAPI = {
     return request(AUTH.PW_CHANGE, {
       method: "POST",
       body: { currentPassword, newPassword },
+    });
+  },
+
+  // POST /auth/password-reset/request
+  async resetRequest(email) {
+    return request(AUTH.PW_RESET_REQUEST, {
+      method: "POST",
+      body: { email },
+    });
+  },
+
+  // POST /auth/password-reset/confirm
+  async resetConfirm({ token, newPassword }) {
+    return request(AUTH.PW_RESET_CONFIRM, {
+      method: "POST",
+      // token은 로그인 상태가 아닌데도 비밀번호 변경해주는 일회용 인증수단
+      body: { token, newPassword },
     });
   },
 };

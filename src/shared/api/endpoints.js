@@ -1,14 +1,17 @@
 export const AUTH = {
-  LOGIN:   `/auth/login`,
+  LOGIN: `/auth/login`,
   REFRESH: `/auth/refresh`,
-  ME:      `/auth/me`,
-  LOGOUT:  `/auth/logout`,
-  REGISTER:`/auth/register`,
+  ME: `/auth/me`,
+  LOGOUT: `/auth/logout`,
+
+  REGISTER: `/auth/register`,
   PW_CHANGE: `/auth/change-password`,
+  PW_RESET_REQUEST: `/auth/password-reset/request`,
+  PW_RESET_CONFIRM: `/auth/password-reset/confirm`,
 };
 
 export const PRODUCTS = {
-  LIST:   `/products`,
+  LIST: `/products`,
   DETAIL: (id) => `/products/${id}`,
 };
 
@@ -17,43 +20,41 @@ export const CATEGORIES = { LIST: `/categories` };
 export const SYSTEM = { POLICY: (key) => `/system/policies/${key}` };
 
 export const ORDERS = {
-  ROOT:    `/orders`,
-  ID:      (id) => `/orders/${id}`,
+  ROOT: `/orders`,
+  ID: (id) => `/orders/${id}`,
   CONFIRM: (id) => `/orders/${id}/confirm`,
-  CANCEL:  (id) => `/orders/${id}/cancel-request`,
-  RETURN:  (id) => `/orders/${id}/return-request`,
-  TRACK:   (id) => `/orders/${id}/tracking`,
+  CANCEL: (id) => `/orders/${id}/cancel-request`,
+  RETURN: (id) => `/orders/${id}/return-request`,
 };
 
 export const RETURNS = {
-  ROOT:   `/returns`,
-  ID:     (id) => `/returns/${id}`,
+  ROOT: `/returns`,
+  ID: (id) => `/returns/${id}`,
 };
 
 export const USERS = {
-  ME:            `/users/me`,
-  PROFILE:       `/users/me/profile`,
-  DEFAULT_ADDR:  `/users/default-address`,
+  ME: `/users/me`,
+  PROFILE: `/users/me/profile`,
+  DEFAULT_ADDR: `/users/default-address`,
 };
 
 export const ADMIN = {
   UPLOADS: `/admin/uploads`,
   PRODUCTS: {
-    ROOT:   `/admin/products`,
-    ID:     (id) => `/admin/products/${id}`,
+    ROOT: `/admin/products`,
+    ID: (id) => `/admin/products/${id}`,
   },
   ORDERS: {
-    ROOT:   `/admin/orders`,
-    ID:     (id) => `/admin/orders/${id}`,
-    DEPOSIT:(id) => `/admin/orders/${id}/deposit-confirm`,
-    SHIP:   (id) => `/admin/orders/${id}/ship`,
+    ROOT: `/admin/orders`,
+    ID: (id) => `/admin/orders/${id}`,
+    DEPOSIT: (id) => `/admin/orders/${id}/deposit-confirm`,
+    SHIP: (id) => `/admin/orders/${id}/ship`,
     REFUND: (id) => `/admin/orders/${id}/refund-log`,
-    CANCEL_APPROVE:(id)=>`/admin/orders/${id}/cancel-approve`,
-    CANCEL_REJECT: (id)=>`/admin/orders/${id}/cancel-reject`,
+    DELIVER: (id) => `/admin/orders/${id}/deliver`,
   },
   RETURNS: {
     ROOT: `/admin/returns`,
-    APPROVE:(id)=>`/admin/returns/${id}/approve`,
-    REJECT: (id)=>`/admin/returns/${id}/reject`,
+    APPROVE: (id) => `/admin/returns/${id}/approve`,
+    REJECT: (id) => `/admin/returns/${id}/reject`,
   },
 };

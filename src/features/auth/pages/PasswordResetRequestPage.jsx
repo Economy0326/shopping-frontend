@@ -1,3 +1,4 @@
+// 로그인 못하는 사용자가 메일 발급 받는 페이지
 import React from "react";
 import { AuthAPI } from "features/auth/api/auth.api";
 import { getApiErrorMessage } from "shared/api/request";

@@ -1,52 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "features/cart/context/CartContext";
 import SideMenu from "ui/components/SideMenu";
 import LoginModal from "ui/components/LoginModal";
+import { useAuth } from "features/auth/context/AuthContext";
 
-function Header({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
+function Header({ isLoggedIn }) {
   const navigate = useNavigate();
   const { cart } = useCart();
 
+  const { logout, authRequired, setAuthRequired, ready } = useAuth();
+
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [usernameInput, setUsernameInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername("");
-    localStorage.removeItem("username");
+  // 401/세션만료 시: 헤더 유지 + 로그인 모달 유도(자동 오픈)
+  useEffect(() => {
+    if (!ready) return;
+    if (authRequired) {
+      setShowLoginModal(true); // 로그인 모달 호출
+      setAuthRequired(false); // 중복 방지
+    }
+  }, [authRequired, ready, setAuthRequired]);
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
     <>
       <header className="flex items-center justify-between px-4 h-16 mb-4">
-        {/* 메뉴 */}
-        <button onClick={() => setShowMenu(true)}>
-          MENU
-        </button>
+        <button onClick={() => setShowMenu(true)}>MENU</button>
 
-        {/* 마이페이지 + 로그인 + 장바구니 */}
         <div className="flex gap-4">
-          <button onClick={() => navigate("/qna")}>
-            Q&A
-          </button>
-          <button onClick={() => navigate("/mypage")}>
-            MY PAGE
-          </button>
-          <button
-            onClick={isLoggedIn ? handleLogout : () => setShowLoginModal(true)}
-          >
+          <button onClick={() => navigate("/qna")}>Q&A</button>
+          <button onClick={() => navigate("/mypage")}>MY PAGE</button>
+
+          <button onClick={isLoggedIn ? handleLogout : () => setShowLoginModal(true)}>
             {isLoggedIn ? "LOGOUT" : "LOGIN"}
           </button>
-          <button onClick={() => navigate("/cart")}>
-            BAG
-          </button>
+
+          <button onClick={() => navigate("/cart")}>BAG</button>
         </div>
       </header>
 
-      {/* 사이드 메뉴 */}
       {showMenu && (
         <>
           <div
@@ -57,16 +56,13 @@ function Header({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
         </>
       )}
 
-      {/* 로그인 모달 */}
       {showLoginModal && (
         <LoginModal
-          username={usernameInput}
+          email={emailInput}
           password={password}
-          setUsername={setUsernameInput}
+          setEmail={setEmailInput}
           setPassword={setPassword}
-          setIsLoggedIn={setIsLoggedIn}
           setShowLoginModal={setShowLoginModal}
-          setUsernameMain={setUsername}
         />
       )}
     </>

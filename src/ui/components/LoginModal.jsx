@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "features/auth/context/AuthContext";
 
 export default function LoginModal({
-  username,
+  email,
   password,
-  setUsername,
+  setEmail,
   setPassword,
   setShowLoginModal,
 }) {
@@ -15,20 +15,18 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
 
   const onLogin = useCallback(async () => {
-    if (!username.trim() || !password.trim()) {
-      toast.error("ID와 PW를 입력해주세요");
+    if (!email.trim() || !password.trim()) {
+      toast.error("이메일과 비밀번호를 입력해주세요");
       return;
     }
     setLoading(true);
-    const res = await login({ username, password });
+    const res = await login({ email, password });
     setLoading(false);
 
     if (res?.ok) {
       setShowLoginModal(false);
-      // AuthContext에서 toast.success를 띄우면 여기서는 중복이라 생략 권장
-      // toast.success("환영합니다");
     }
-  }, [username, password, login, setShowLoginModal]);
+  }, [email, password, login, setShowLoginModal]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -44,12 +42,13 @@ export default function LoginModal({
         </div>
 
         <input
-          type="text"
-          placeholder="ID"
+          type="email"
+          placeholder="EMAIL"
           className="w-full border-b-4 border-white bg-transparent text-2xl text-white placeholder-white py-2 mb-2 font-bold focus:outline-none"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           disabled={loading}
+          autoComplete="email"
         />
         <input
           type="password"
@@ -59,6 +58,7 @@ export default function LoginModal({
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onLogin()}
           disabled={loading}
+          autoComplete="current-password"
         />
 
         <button
@@ -69,13 +69,21 @@ export default function LoginModal({
           {loading ? "LOGGING IN..." : "LOGIN"}
         </button>
 
-        {/* 회원가입 버튼 */}
         <button
           onClick={() => navigate("/auth/signup")}
           disabled={loading}
           className="w-full bg-white text-red-500 text-2xl font-bold rounded py-2 mb-1 disabled:opacity-60"
         >
           CREATE AN ACCOUNT
+        </button>
+
+        {/* 비번 재설정 */}
+        <button
+          onClick={() => navigate("/auth/password-reset")}
+          disabled={loading}
+          className="w-full bg-white/90 text-red-600 text-xl font-bold rounded py-2 mt-2 disabled:opacity-60"
+        >
+          FORGOT PASSWORD
         </button>
       </div>
     </div>

@@ -1,24 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "features/cart/context/CartContext";
 import SideMenu from "ui/components/SideMenu";
 import LoginModal from "ui/components/LoginModal";
+import { useAuth } from "features/auth/context/AuthContext";
 
-function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
+function HeaderWithLogo({ isLoggedIn }) {
   const navigate = useNavigate();
   const { cart } = useCart();
 
+  const { logout, authRequired, setAuthRequired, ready } = useAuth();
+
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [usernameInput, setUsernameInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername("");
-    localStorage.removeItem("username");
+  // 401/세션만료 시: 헤더 유지 + 로그인 모달 유도(자동 오픈)
+  useEffect(() => {
+    if (!ready) return;
+    if (authRequired) {
+      setShowLoginModal(true); // 로그인 모달 호출
+      setAuthRequired(false); // 중복 방지
+    }
+  }, [authRequired, ready, setAuthRequired]);
+
+  const handleLogout = async () => {
+    await logout();
   };
-  
+
   const navBtn =
     "focus:outline-none focus-visible:outline-none active:outline-none " +
     "focus:ring-0 ring-0 border-0 outline-none select-none";
@@ -28,7 +38,6 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
   return (
     <>
       <header className="header-nav flex items-center justify-between px-4 h-16 mb-4">
-        {/* 메뉴 */}
         <button
           type="button"
           onClick={() => setShowMenu(true)}
@@ -38,7 +47,6 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
           MENU
         </button>
 
-        {/* 공통 이미지 */}
         <div className="fixed top-0 left-0 right-0 bg-white h-16 px-4 flex items-center justify-between relative">
           <button
             type="button"
@@ -56,23 +64,12 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
           </button>
         </div>
 
-        {/* Q&A페이지 + 마이페이지 + 로그인 + 장바구니 */}
         <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={() => navigate("/qna")}
-            className={navBtn}
-            style={tapHighlightNone}
-          >
+          <button type="button" onClick={() => navigate("/qna")} className={navBtn} style={tapHighlightNone}>
             Q&A
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate("/mypage")}
-            className={navBtn}
-            style={tapHighlightNone}
-          >
+          <button type="button" onClick={() => navigate("/mypage")} className={navBtn} style={tapHighlightNone}>
             MY PAGE
           </button>
 
@@ -85,18 +82,12 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
             {isLoggedIn ? "LOGOUT" : "LOGIN"}
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate("/cart")}
-            className={navBtn}
-            style={tapHighlightNone}
-          >
+          <button type="button" onClick={() => navigate("/cart")} className={navBtn} style={tapHighlightNone}>
             BAG
           </button>
         </div>
       </header>
 
-      {/* 메뉴 */}
       {showMenu && (
         <>
           <div
@@ -107,16 +98,13 @@ function HeaderWithLogo({ isLoggedIn, setIsLoggedIn, username, setUsername }) {
         </>
       )}
 
-      {/* 로그인 모달 */}
       {showLoginModal && (
         <LoginModal
-          username={usernameInput}
+          email={emailInput}
           password={password}
-          setUsername={setUsernameInput}
+          setEmail={setEmailInput}
           setPassword={setPassword}
-          setIsLoggedIn={setIsLoggedIn}
           setShowLoginModal={setShowLoginModal}
-          setUsernameMain={setUsername}
         />
       )}
     </>

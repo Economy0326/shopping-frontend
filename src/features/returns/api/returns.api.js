@@ -19,21 +19,4 @@ export const ReturnsAPI = {
       body: payload, // { reason, memo }
     });
   },
-
-  // 관리자 반품 목록/승인/거절 (그대로)
-  listAdmin(params) {
-    return request(ADMIN.RETURNS.ROOT, { params });
-  },
-  approve(returnId, memo) {
-    return request(ADMIN.RETURNS.APPROVE(returnId), {
-      method: "POST",
-      body: memo ? { memo } : undefined,
-    });
-  },
-  reject(returnId, reason) {
-    return request(ADMIN.RETURNS.REJECT(returnId), {
-      method: "POST",
-      body: { reason },
-    });
-  },
 };
