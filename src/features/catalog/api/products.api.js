@@ -2,7 +2,7 @@ import { request } from "shared/api/request";
 import { PRODUCTS, CATEGORIES } from "shared/api/endpoints";
 
 export const ProductsAPI = {
-  // GET /products?page=...&size=...&categoryId=...&sort=...
+  // GET /products?page=...&size=...&category=...&sort=...
   list(params = {}) {
     return request(PRODUCTS.LIST, { params });
   },

@@ -1,10 +1,25 @@
-export const STATUS_UI = {
-  AWAITING_DEPOSIT: { label: "입금대기", color: "bg-yellow-100 text-yellow-800" },
-  DEPOSIT_CONFIRMED:{ label: "입금확인", color: "bg-emerald-100 text-emerald-800" },
-  SHIPPED:          { label: "발송완료", color: "bg-indigo-100 text-indigo-800" },
-  DELIVERED:        { label: "배송완료", color: "bg-gray-100 text-gray-800" },
-  CANCELED:         { label: "취소",     color: "bg-rose-100 text-rose-800" },
-};
+import { OrderStatus } from "shared/utils/orderPolicy";
 
-export const statusLabel = (code) => STATUS_UI[code]?.label ?? code;
-export const statusColor = (code) => STATUS_UI[code]?.color ?? "bg-gray-100 text-gray-800";
+// 상태 라벨
+export function statusLabel(status) {
+  const map = {
+    [OrderStatus.AWAITING_DEPOSIT]: "입금대기",
+    [OrderStatus.PAID]: "결제완료",
+    [OrderStatus.SHIPPED]: "배송중",
+    [OrderStatus.DELIVERED]: "배송완료",
+    [OrderStatus.CANCELED]: "취소",
+  };
+  return map[status] || status || "-";
+}
+
+// 상태 색상(배지용)
+export function statusColor(status) {
+  const map = {
+    [OrderStatus.AWAITING_DEPOSIT]: "bg-amber-100 text-amber-800",
+    [OrderStatus.PAID]: "bg-blue-100 text-blue-800",
+    [OrderStatus.SHIPPED]: "bg-indigo-100 text-indigo-800",
+    [OrderStatus.DELIVERED]: "bg-emerald-100 text-emerald-800",
+    [OrderStatus.CANCELED]: "bg-rose-100 text-rose-800",
+  };
+  return map[status] || "bg-gray-100 text-gray-700";
+}

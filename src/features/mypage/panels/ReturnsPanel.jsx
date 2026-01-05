@@ -73,7 +73,8 @@ export default function ReturnsPanel() {
     try {
       setLoading(true);
       const res = await request(RETURNS.ROOT, { params: { page, size: meta.size || 10 } });
-      setList(page === 1 ? (res?.data ?? []) : [...list, ...(res?.data ?? [])]);
+      const rows = res?.data ?? [];
+      setList((prev) => (page === 1 ? rows : [...prev, ...rows]));
       setMeta(res?.meta ?? { page, size: meta.size || 10, total: 0 });
       setErr("");
     } catch (e) {

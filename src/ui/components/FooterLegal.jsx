@@ -1,5 +1,4 @@
 import siteMeta from "shared/utils/siteMeta";
-import { Link } from "react-router-dom";
 
 export default function FooterLegal() {
   const s = siteMeta;

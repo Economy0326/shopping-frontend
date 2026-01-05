@@ -13,7 +13,8 @@ export default function MyOrdersPage() {
     try {
       setLoading(true);
       const res = await OrdersAPI.list({ page, size: meta.size, sort: "createdAt,desc" });
-      setList(page === 1 ? (res?.data ?? []) : [...list, ...(res?.data ?? [])]);
+      const rows = res?.data ?? [];
+      setList((prev) => (page === 1 ? rows : [...prev, ...rows]));
       setMeta(res?.meta ?? { page, size: meta.size, total: 0 });
       setErr("");
     } catch (e) {

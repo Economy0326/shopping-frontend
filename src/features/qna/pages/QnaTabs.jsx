@@ -5,18 +5,22 @@ const NoticeListPage = lazy(() => import("./NoticeListPage"));
 const AskListPage = lazy(() => import("./AskListPage"));
 const FaqPanel = lazy(() => import("../panels/FaqPanel"));
 
-export default function QnaPage({ isLoggedIn, username, currentUserId, isAdmin }) {
+export default function QnaTabs({ isLoggedIn, username, currentUserId, isAdmin }) {
   const [sp, setSp] = useSearchParams();
-  const tab = sp.get("tab") || "notice"; // 'notice' | 'ask' | 'faq'
+  const tab = sp.get("tab") || "notice";
   const setTab = (t) => setSp({ tab: t }, { replace: false });
 
   const tabBtn = (key) =>
-    `${tab === key ? "font-bold text-4xl text-red-500 border-b-2 border-red-500" : "font-bold text-4xl text-red-500 hover:text-red-500"}`;
+    tab === key
+      ? "font-bold text-4xl text-red-500 border-b-2 border-red-500"
+      : "font-bold text-4xl text-red-500 hover:text-red-500";
 
   return (
     <main className="max-w-5xl mx-auto pb-16">
       <nav className="sticky top-16 bg-white z-10">
-        <h1 className="mb-2 font-bold text-5xl text-red-500 text-center">QUESTION AND ANSWER</h1>
+        <h1 className="mb-2 font-bold text-5xl text-red-500 text-center">
+          QUESTION AND ANSWER
+        </h1>
         <ul className="flex gap-2 justify-center">
           <li>
             <button
@@ -50,8 +54,8 @@ export default function QnaPage({ isLoggedIn, username, currentUserId, isAdmin }
       <Suspense fallback={<div className="py-6">불러오는 중…</div>}>
         {tab === "notice" && <NoticeListPage />}
         {tab === "ask" && (
-          <AskListPage 
-            currentUserId = {currentUserId}
+          <AskListPage
+            currentUserId={currentUserId}
             currentUserName={username}
             isAdmin={isAdmin}
           />

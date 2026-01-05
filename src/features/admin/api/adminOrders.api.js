@@ -26,4 +26,9 @@ export const AdminOrdersAPI = {
   refund(id, payload) {
     return request(ADMIN.ORDERS.REFUND(id), { method: "POST", body: payload });
   },
+
+  // POST /admin/orders/{id}/deliver
+  deliver(id) {
+    return request(ADMIN.ORDERS.DELIVER(id), { method: "POST" });
+  },
 };

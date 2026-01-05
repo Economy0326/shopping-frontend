@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { SYSTEM } from "shared/api/endpoints";
 import { statusLabel, statusColor } from "shared/utils/constants";
-import { buildTrackingUrl } from "shared/utils/tracking";
+import { buildTrackingUrl } from "shared/utils/buildTrackingUrl";
+import {
+  canCancel,
+  canReturn,
+  isShippingVisible,
+  isBankInfoVisible,
+} from "shared/utils/orderPolicy";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -20,9 +26,7 @@ function Modal({ open, title, children, onClose, disableClose }) {
           <button
             onClick={() => (!disableClose ? onClose?.() : null)}
             className={`text-sm ${
-              disableClose
-                ? "text-gray-300"
-                : "text-gray-500 hover:underline"
+              disableClose ? "text-gray-300" : "text-gray-500 hover:underline"
             }`}
           >
             닫기
@@ -68,6 +72,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line
   }, [id]);
 
   useEffect(() => {
@@ -77,17 +82,18 @@ export default function OrderDetailPage() {
   }, []);
 
   const status = order?.status;
-  const canCancel = status === "AWAITING_DEPOSIT";
-  const canReturn = status === "DELIVERED";
+
+  const canCancelBtn = canCancel(status);
+  const canReturnBtn = canReturn(status);
   const hasReturn = Boolean(order?.return?.id);
-  const canOpenReturn = canReturn && !hasReturn;
+  const canOpenReturn = canReturnBtn && !hasReturn;
 
   const trackingUrl = useMemo(() => {
-    return buildTrackingUrl(
-      order?.shipping?.carrier,
-      order?.shipping?.trackingNo
-    );
+    return buildTrackingUrl(order?.shipping?.carrier, order?.shipping?.trackingNo);
   }, [order?.shipping?.carrier, order?.shipping?.trackingNo]);
+
+  const showShipping = isShippingVisible(status);
+  const showBankInfo = isBankInfoVisible(status);
 
   const submitCancel = async () => {
     if (!cancelForm.reason.trim()) return alert("취소 사유를 입력해주세요.");
@@ -165,9 +171,7 @@ export default function OrderDetailPage() {
             >
               {statusLabel(status)}
             </span>
-            <span className="text-sm text-gray-500 font-mono">
-              #{order.id}
-            </span>
+            <span className="text-sm text-gray-500 font-mono">#{order.id}</span>
           </div>
         </div>
       </header>
@@ -177,12 +181,10 @@ export default function OrderDetailPage() {
         총 결제금액: <b>{formatWon(order.amounts?.grandTotal)}</b>
         <div className="mt-3">
           <button
-            disabled={!canCancel}
+            disabled={!canCancelBtn}
             onClick={() => setCancelOpen(true)}
             className={`px-4 py-2 rounded-xl text-sm text-white ${
-              canCancel
-                ? "bg-black"
-                : "bg-gray-300 cursor-not-allowed"
+              canCancelBtn ? "bg-black" : "bg-gray-300 cursor-not-allowed"
             }`}
           >
             취소 요청
@@ -191,20 +193,17 @@ export default function OrderDetailPage() {
       </section>
 
       {/* 입금 안내 */}
-      {status === "AWAITING_DEPOSIT" && (
+      {showBankInfo && (
         <section className="border rounded-2xl p-4">
           <h2 className="font-bold mb-2">입금 안내</h2>
 
           {bankPolicy?.value ? (
             typeof bankPolicy.value === "string" ? (
-              <p className="text-sm whitespace-pre-line">
-                {bankPolicy.value}
-              </p>
+              <p className="text-sm whitespace-pre-line">{bankPolicy.value}</p>
             ) : (
               <>
                 <p className="text-sm">
-                  <b>{bankPolicy.value.bank}</b>{" "}
-                  {bankPolicy.value.account} / 예금주{" "}
+                  <b>{bankPolicy.value.bank}</b> {bankPolicy.value.account} / 예금주{" "}
                   <b>{bankPolicy.value.holder}</b>
                 </p>
                 {bankPolicy.value.notice && (
@@ -215,9 +214,7 @@ export default function OrderDetailPage() {
               </>
             )
           ) : (
-            <p className="text-sm text-gray-600">
-              무통장 입금 확인 후 배송이 진행됩니다.
-            </p>
+            <p className="text-sm text-gray-600">무통장 입금 확인 후 배송이 진행됩니다.</p>
           )}
 
           <p className="mt-2 text-sm">
@@ -226,33 +223,26 @@ export default function OrderDetailPage() {
 
           {order.expiresAt && (
             <p className="text-xs text-gray-500 mt-1">
-              입금 기한:{" "}
-              {new Date(order.expiresAt).toLocaleString()}
+              입금 기한: {new Date(order.expiresAt).toLocaleString()}
             </p>
           )}
         </section>
       )}
 
       {/* 배송 */}
-      {(status === "SHIPPED" || status === "DELIVERED") && (
+      {showShipping && (
         <section className="border rounded-2xl p-4">
           <h2 className="font-bold mb-2">배송 정보</h2>
           {order.shipping?.trackingNo ? (
             <>
-              <div className="text-sm">
-                택배사: {order.shipping.carrier}
-              </div>
+              <div className="text-sm">택배사: {order.shipping.carrier}</div>
               <div className="text-sm">
                 송장번호:{" "}
-                <span className="font-mono">
-                  {order.shipping.trackingNo}
-                </span>
+                <span className="font-mono">{order.shipping.trackingNo}</span>
               </div>
               <button
                 onClick={() =>
-                  trackingUrl
-                    ? window.open(trackingUrl, "_blank")
-                    : alert("조회 링크 없음")
+                  trackingUrl ? window.open(trackingUrl, "_blank") : alert("조회 링크 없음")
                 }
                 className="mt-2 border px-3 py-2 rounded-xl text-sm"
               >
@@ -281,9 +271,7 @@ export default function OrderDetailPage() {
           disabled={!canOpenReturn}
           onClick={() => setReturnOpen(true)}
           className={`mt-3 px-4 py-2 rounded-xl text-sm text-white ${
-            canOpenReturn
-              ? "bg-black"
-              : "bg-gray-300 cursor-not-allowed"
+            canOpenReturn ? "bg-black" : "bg-gray-300 cursor-not-allowed"
           }`}
         >
           반품 신청
@@ -315,22 +303,15 @@ export default function OrderDetailPage() {
           className="w-full border p-2 mb-2"
           placeholder="사유"
           value={cancelForm.reason}
-          onChange={(e) =>
-            setCancelForm((f) => ({ ...f, reason: e.target.value }))
-          }
+          onChange={(e) => setCancelForm((f) => ({ ...f, reason: e.target.value }))}
         />
         <textarea
           className="w-full border p-2 mb-3"
           placeholder="메모(선택)"
           value={cancelForm.memo}
-          onChange={(e) =>
-            setCancelForm((f) => ({ ...f, memo: e.target.value }))
-          }
+          onChange={(e) => setCancelForm((f) => ({ ...f, memo: e.target.value }))}
         />
-        <button
-          onClick={submitCancel}
-          className="bg-black text-white px-4 py-2 rounded"
-        >
+        <button onClick={submitCancel} className="bg-black text-white px-4 py-2 rounded">
           요청
         </button>
       </Modal>
@@ -345,22 +326,15 @@ export default function OrderDetailPage() {
           className="w-full border p-2 mb-2"
           placeholder="사유"
           value={returnForm.reason}
-          onChange={(e) =>
-            setReturnForm((f) => ({ ...f, reason: e.target.value }))
-          }
+          onChange={(e) => setReturnForm((f) => ({ ...f, reason: e.target.value }))}
         />
         <textarea
           className="w-full border p-2 mb-3"
           placeholder="메모(선택)"
           value={returnForm.memo}
-          onChange={(e) =>
-            setReturnForm((f) => ({ ...f, memo: e.target.value }))
-          }
+          onChange={(e) => setReturnForm((f) => ({ ...f, memo: e.target.value }))}
         />
-        <button
-          onClick={submitReturn}
-          className="bg-black text-white px-4 py-2 rounded"
-        >
+        <button onClick={submitReturn} className="bg-black text-white px-4 py-2 rounded">
           신청
         </button>
       </Modal>

@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, useNavigate } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 
 import AppProviders from "app/providers";
 import AppRoutes from "app/routes";
@@ -20,11 +20,11 @@ function AppShell() {
   const setUsername = (name) =>
     setUser(name ? { ...(user ?? {}), username: name } : null);
 
-  // CartProvider key는 email 기반 으로 변경
-  const cartKey = user?.email ?? "guest";
+  // 장바구니 저장 키: 로그인 시 email, 아니면 guest
+  const cartStorageKey = user?.email ?? "guest";
 
   return (
-    <CartProvider username={cartKey}>
+    <CartProvider username={cartStorageKey}>
       <AppRoutes
         username={username}
         isLoggedIn={isLoggedIn}

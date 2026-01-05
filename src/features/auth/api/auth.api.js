@@ -1,6 +1,6 @@
 import { request } from "shared/api/request";
 import { AUTH } from "shared/api/endpoints";
-import { setAccessToken, clearToken } from "shared/api/tokenMemory";
+import { clearToken } from "shared/api/tokenMemory";
 
 export const AuthAPI = {
   // POST /auth/login

@@ -1,14 +1,28 @@
 // 상품 상세페이지 + 룩북 상세페이지
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
-import products from "features/catalog/data/Product";                 // 로컬 폴백
-import { useCart } from "features/cart/context/CartContext";
-import { ProductsAPI } from "features/catalog/api/products.api";          // 서버 우선
 
-function TriangleArrow({ className = "w-full h-full text-red-500", direction = "right" }) {
+import { useCart } from "features/cart/context/CartContext";
+import { ProductsAPI } from "features/catalog/api/products.api"; // 명세 기준: get/list 통일
+import { SystemAPI } from "shared/api/system.api";
+import { pickData } from "shared/api/pickers"; // { data: ... } 껍데기 벗기기
+import { getApiErrorMessage } from "shared/api/request";
+
+//  정책키는 상수로 고정(명세 확정)
+// 운영자가 /system/policies/returns 만 수정하면 전상품에 반영됨
+const RETURNS_POLICY_KEY = "returns";
+
+function TriangleArrow({
+  className = "w-full h-full text-red-500",
+  direction = "right",
+}) {
   const rotateClass = direction === "left" ? "rotate-180" : "";
   return (
-    <svg className={`${className} ${rotateClass}`} viewBox="8 0 12 24" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      className={`${className} ${rotateClass}`}
+      viewBox="8 0 12 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <polygon points="8,4 8,20 20,12" fill="currentColor" />
     </svg>
   );
@@ -19,67 +33,127 @@ export default function ProductPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [selectedColor, setSelectedColor] = useState(null);
+  const [product, setProduct] = useState(null);
+
+  const [qty, setQty] = useState(1); // 구매 수량
+  const [added, setAdded] = useState(false); // 장바구니 담김 표시
+
+  /**
+   *  옵션 선택은 value가 아니라 option.id(= optionId)로 저장해야 함
+   * - 명세: 주문 payload는 optionId(option.id) 기반
+   * - value/index 기반 전송 금지
+   */
+  const [selectedSizeId, setSelectedSizeId] = useState(null);
+  const [selectedColorId, setSelectedColorId] = useState(null);
+
   const [error, setError] = useState("");
-  const [open, setOpen] = useState({ size: false, info: false, return: false });
+  const [open, setOpen] = useState({
+    // 아코디언 섹션 열림 상태
+    size: false,
+    info: false,
+    return: false,
+  });
 
-  // 서버/로컬에서 불러올 상세 텍스트들
-  const [sizeGuideMd, setSizeGuideMd]     = useState("");
+  const [sizeGuideMd, setSizeGuideMd] = useState("");
   const [productInfoMd, setProductInfoMd] = useState("");
-  const [returnsMd, setReturnsMd]         = useState("교환/환불 안내를 준비 중입니다.");
-  const [loadingInfo, setLoadingInfo]     = useState(true);
+  const [returnsMd, setReturnsMd] = useState("교환/환불 안내를 준비 중입니다.");
+  const [loadingInfo, setLoadingInfo] = useState(true);
 
+  // 룩북 전용 md 텍스트
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lookMd, setLookMd] = useState("");
 
+  // 서버 로딩/에러 상태 (운영버전 기본)
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState("");
+
+  // 아코디언 토글 헬퍼
   const toggle = (k) => setOpen((prev) => ({ ...prev, [k]: !prev[k] }));
 
-  // 1) 우선 로컬 데이터에서 상품 찾기(즉시 렌더를 위해)
-  const productLocal = useMemo(
-    () => products.find((p) => String(p.id) === String(id)),
-    [id]
-  );
-
-  // 2) 서버 상세를 가져와서 폴백 대체
-  const [product, setProduct] = useState(productLocal || null);
-
-  // 서버 상세 로드 (있으면 교체)
   useEffect(() => {
+    // alive 플래그: 언마운트 후 setState 방지
     let alive = true;
+
     (async () => {
       try {
-        const detail = await ProductsAPI.byId?.(id) ?? await ProductsAPI.detail?.(id);
-        if (detail && alive) setProduct(detail);
-      } catch {
-        // 서버 준비 전/오류 → 로컬 유지
-        if (alive) setProduct(productLocal || null);
+        setLoading(true);
+        setLoadErr("");
+
+        // 명세: GET /products/{id}
+        const res = await ProductsAPI.get(id);
+        const detail = pickData(res);
+
+        if (!detail) throw new Error("상품 데이터가 비어있습니다.");
+        if (alive) setProduct(detail);
+      } catch (e) {
+        if (alive) {
+          setProduct(null);
+          setLoadErr(getApiErrorMessage(e, "상품 상세 로드 실패"));
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
-  // 옵션/가격/룩 여부 계산
-  const images = product?.images ?? productLocal?.images ?? [];
-  const isLook = (product?.category ?? productLocal?.category) === "look";
-  const lookMdPath = product?.lookMd ?? productLocal?.lookMd ?? "";
+  // product가 null일 때 접근 안전하게 처리
+  const images = product?.images ?? [];
+  const isLook = product?.category === "look";
 
-  const rawPrice = typeof product?.price === "number" ? product.price : productLocal?.price;
+  // 룩북 md URL (명세: lookMdUrl optional)
+  const lookMdUrl = product?.lookMdUrl ?? "";
+
+  const rawPrice = product?.price;
+  // 룩북 이면 가격 노출 안 함
   const hasPrice = typeof rawPrice === "number" && !isLook;
   const formattedPrice = hasPrice ? rawPrice.toLocaleString() : null;
 
-  const sizeOptions = (Array.isArray(product?.sizes) && product.sizes.length)
-    ? product.sizes
-    : (Array.isArray(productLocal?.sizes) && productLocal.sizes.length ? productLocal.sizes : [1, 2]);
+  /**
+   *  optionGroups 기반 렌더링
+   * - optionGroups: [{ key:'size'|'color', options:[{id,value,stock}] }]
+   */
+  const optionGroups = Array.isArray(product?.optionGroups) ? product.optionGroups : [];
+  const sizeGroup = optionGroups.find((g) => g.key === "size");
+  const colorGroup = optionGroups.find((g) => g.key === "color");
 
-  const colorOptions = (Array.isArray(product?.colors) && product.colors.length)
-    ? product.colors
-    : (Array.isArray(productLocal?.colors) && productLocal.colors.length ? productLocal.colors : ["white", "black"]);
+  const sizeOptions = Array.isArray(sizeGroup?.options) ? sizeGroup.options : [];
+  const colorOptions = Array.isArray(colorGroup?.options) ? colorGroup.options : [];
 
-  // 설명 섹션 로딩: 서버 우선, 실패 시 로컬/기본 문구
+  /**
+   * (공통 정책) 교환/반품/환불 안내
+   * - /system/policies/returns
+   * - 서버가 { key, value } 형태로 준다는 전제 (명세)
+   */
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const data = await SystemAPI.policy(RETURNS_POLICY_KEY);
+        if (alive) {
+          const txt = data?.value ?? "";
+          setReturnsMd(txt || "교환/환불 안내를 준비 중입니다.");
+        }
+      } catch {
+        if (alive) setReturnsMd("교환/환불 안내를 준비 중입니다.");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  /**
+   * 상품별 상세/사이즈 안내
+   * - URL 방식: sizeGuideMdUrl / productInfoMdUrl
+   * - Text 방식: sizeGuideText / productInfoText
+   * - fallback 우선순위: URL fetch -> Text -> description -> 미노출
+   */
   useEffect(() => {
     let alive = true;
 
@@ -89,23 +163,20 @@ export default function ProductPage() {
         const res = await fetch(url);
         if (!res.ok) return "";
         return await res.text();
-      } catch { return ""; }
+      } catch {
+        return "";
+      }
     }
 
     (async () => {
       setLoadingInfo(true);
 
-      // 서버 상세(문서 URL 포함) 시도
-      let detail = null;
-      try {
-        detail = await ProductsAPI.byId?.(id) ?? await ProductsAPI.detail?.(id);
-      } catch { /* 서버 준비 전 */ }
+      const sizeMdUrl = product?.sizeGuideMdUrl ?? "";
+      const infoMdUrl = product?.productInfoMdUrl ?? "";
 
-      const sizeMdUrl = detail?.sizeGuideMd ?? productLocal?.sizeGuideMd;
-      const infoMdUrl = detail?.productInfoMd ?? productLocal?.productInfoMd;
-
-      const sizeTextFallback = productLocal?.sizeGuideText ?? "";
-      const infoTextFallback = productLocal?.productInfoText ?? "";
+      // 서버가 텍스트만 주는 경우 fallback
+      const sizeTextFallback = product?.sizeGuideText ?? "";
+      const infoTextFallback = product?.productInfoText ?? product?.description ?? "";
 
       const [sizeMdText, infoMdText] = await Promise.all([
         sizeMdUrl ? fetchTextMaybe(sizeMdUrl) : "",
@@ -115,72 +186,134 @@ export default function ProductPage() {
       if (alive) {
         setSizeGuideMd(sizeMdText?.trim() || sizeTextFallback);
         setProductInfoMd(infoMdText?.trim() || infoTextFallback);
-        // returnsMd는 시스템 정책 API 제거했고, 기본 문구 유지
-        setReturnsMd("교환/환불 안내를 준비 중입니다.");
         setLoadingInfo(false);
       }
     })();
 
-    return () => { alive = false; };
-  }, [id, productLocal?.sizeGuideMd, productLocal?.productInfoMd, productLocal?.sizeGuideText, productLocal?.productInfoText]);
+    return () => {
+      alive = false;
+    };
+  }, [id, product]);
 
-  // LOOK면 public의 md 파일(fetch) 로드
+  //룩북 md는 서버가 lookMdUrl(URL)을 주면 fetch
   useEffect(() => {
     let alive = true;
+
     async function loadMd() {
-      if (isLook && lookMdPath) {
+      if (isLook && lookMdUrl) {
         try {
-          const res = await fetch(lookMdPath);
+          const res = await fetch(lookMdUrl);
+          if (!res.ok) throw new Error("md fetch fail");
           const txt = await res.text();
           if (alive) setLookMd(txt);
         } catch {
           if (alive) setLookMd("");
         }
       } else {
-        setLookMd("");
+        if (alive) setLookMd("");
       }
     }
-    loadMd();
-    return () => { alive = false; };
-  }, [isLook, lookMdPath]);
 
-  if (!productLocal && !product) {
+    loadMd();
+    return () => {
+      alive = false;
+    };
+  }, [isLook, lookMdUrl]);
+
+  if (loading) {
     return (
       <main className="max-w-5xl mx-auto p-6">
-        <p className="text-gray-600">상품을 찾을 수 없습니다.</p>
-        <button className="text-red-500 underline" onClick={() => navigate(-1)}>GET OUT</button>
+        <p className="text-gray-600">로딩중…</p>
       </main>
     );
   }
 
-  // 옵션 선택 검증
+  if (!product) {
+    return (
+      <main className="max-w-5xl mx-auto p-6">
+        <p className="text-gray-600">{loadErr || "상품을 찾을 수 없습니다."}</p>
+        <button className="text-red-500 underline" onClick={() => navigate(-1)}>
+          GET OUT
+        </button>
+      </main>
+    );
+  }
+
   const validateSelection = () => {
-    if (!isLook && (!selectedSize || !selectedColor)) {
-      setError("색상과 사이즈를 선택해주세요.");
-      return false;
+    // 룩북은 옵션 선택 없음
+    if (!isLook) {
+      // 옵션 그룹이 존재하면 선택 강제
+      const needsSize = Array.isArray(sizeOptions) && sizeOptions.length > 0;
+      const needsColor = Array.isArray(colorOptions) && colorOptions.length > 0;
+
+      if ((needsSize && !selectedSizeId) || (needsColor && !selectedColorId)) {
+        setError("색상과 사이즈를 선택해주세요.");
+        return false;
+      }
+
+      // stock=0이면 선택 불가(버튼이 disabled라 보통 여기까지 안 오지만 방어)
+      if (needsSize) {
+        const opt = sizeOptions.find((o) => String(o.id) === String(selectedSizeId));
+        if (opt && Number(opt.stock) <= 0) {
+          setError("해당 사이즈는 품절입니다.");
+          return false;
+        }
+      }
+      if (needsColor) {
+        const opt = colorOptions.find((o) => String(o.id) === String(selectedColorId));
+        if (opt && Number(opt.stock) <= 0) {
+          setError("해당 색상은 품절입니다.");
+          return false;
+        }
+      }
     }
     return true;
   };
 
-  // 현재 선택 상태를 장바구니에 추가
+  // 장바구니에 현재 상품 추가
   const addCurrentToCart = () => {
     if (!validateSelection()) return false;
-    const base = product || productLocal;
-    const item = {
-      ...base,
-      price: Number(base?.price) || 0,
-      selected: { size: selectedSize, color: selectedColor },
-    };
-    addToCart(item, Math.max(1, qty));
+
+    // Cart에는 optionIds를 저장(주문 payload와 동일한 “id 기반”)
+    const optionIds = [
+      ...(selectedSizeId ? [Number(selectedSizeId)] : []),
+      ...(selectedColorId ? [Number(selectedColorId)] : []),
+    ].filter(Boolean);
+
+    const optionLabels = [
+      ...(selectedSizeId
+        ? [
+            `SIZE:${String(
+              sizeOptions.find((o) => String(o.id) === String(selectedSizeId))?.value ?? ""
+            )}`,
+          ]
+        : []),
+      ...(selectedColorId
+        ? [
+            `COLOR:${String(
+              colorOptions.find((o) => String(o.id) === String(selectedColorId))?.value ?? ""
+            )}`,
+          ]
+        : []),
+    ].filter((s) => s && !s.endsWith(":"));
+
+    addToCart(
+      product,
+      Math.max(1, qty),
+      optionIds.length ? { optionIds, optionLabels } : {}
+    );
+    
     return true;
   };
 
+  // 바로 구매 처리
   const handleBuyNow = () => {
     setError("");
     if (!addCurrentToCart()) return;
     navigate("/cart");
   };
 
+  // 장바구니에 담기 처리
   const handleAddOnly = () => {
     setError("");
     if (!addCurrentToCart()) return;
@@ -190,12 +323,20 @@ export default function ProductPage() {
 
   const categories = ["all", "outer", "top", "bottom", "acc", "for-artist"];
 
+  // 버튼 비활성 조건(옵션이 있으면 선택 전까지 비활성)
+  const buyDisabled =
+    (!isLook && sizeOptions.length > 0 && !selectedSizeId) ||
+    (!isLook && colorOptions.length > 0 && !selectedColorId);
+
   return (
     <>
       {/* 카테고리/탭 */}
       <header>
         {isLook ? (
-          <nav aria-label="카테고리" className="flex justify-center w-full xl:w-4/5 mx-auto p-5 bg-white">
+          <nav
+            aria-label="카테고리"
+            className="flex justify-center w-full xl:w-4/5 mx-auto p-5 bg-white"
+          >
             <NavLink
               to="/look"
               className={({ isActive }) =>
@@ -203,7 +344,9 @@ export default function ProductPage() {
                   isActive ? "text-white" : "text-red-500"
                 }`
               }
-              style={({ isActive }) => (isActive ? { WebkitTextStroke: "1px red" } : {})}
+              style={({ isActive }) =>
+                isActive ? { WebkitTextStroke: "1px red" } : {}
+              }
             >
               look
             </NavLink>
@@ -219,7 +362,9 @@ export default function ProductPage() {
                     isActive ? "text-white" : "text-red-500"
                   }`
                 }
-                style={({ isActive }) => (isActive ? { WebkitTextStroke: "1px red" } : {})}
+                style={({ isActive }) =>
+                  isActive ? { WebkitTextStroke: "1px red" } : {}
+                }
               >
                 {cat}
               </NavLink>
@@ -236,17 +381,24 @@ export default function ProductPage() {
             {images.length > 1 && (
               <button
                 type="button"
-                onClick={() => setCurrentIndex((i) => (i - 1 + images.length) % images.length)}
+                onClick={() =>
+                  setCurrentIndex(
+                    (i) => (i - 1 + images.length) % images.length
+                  )
+                }
                 className="group absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 z-20 w-12 h-[16%] min-h-12 flex items-center justify-center"
                 aria-label="이전 이미지"
               >
-                <TriangleArrow className="h-[145%] text-red-500 scale-y-150 transition-transform" direction="left" />
+                <TriangleArrow
+                  className="h-[145%] text-red-500 scale-y-150 transition-transform"
+                  direction="left"
+                />
               </button>
             )}
 
             <img
               src={images[currentIndex]}
-              alt={`${(product?.name ?? productLocal?.name) || "product"} ${currentIndex + 1}`}
+              alt={`${product?.name || "product"} ${currentIndex + 1}`}
               className="w-full h-auto object-cover rounded-2xl"
             />
 
@@ -257,7 +409,10 @@ export default function ProductPage() {
                 className="group absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 w-12 h-[16%] min-h-12 flex items-center justify-center"
                 aria-label="다음 이미지"
               >
-                <TriangleArrow className="h-[145%] text-red-500 scale-y-150 transition-transform" direction="right" />
+                <TriangleArrow
+                  className="h-[145%] text-red-500 scale-y-150 transition-transform"
+                  direction="right"
+                />
               </button>
             )}
           </div>
@@ -267,7 +422,7 @@ export default function ProductPage() {
         <section className="flex flex-col gap-8">
           <div className="grid gap-2">
             <h1 className="text-4xl font-bold">
-              {isLook ? "NO THINKING AREA" : (product?.name ?? productLocal?.name)}
+              {isLook ? "NO THINKING AREA" : product?.name}
             </h1>
             {hasPrice && (
               <div className="text-xl font-bold text-black">
@@ -278,63 +433,86 @@ export default function ProductPage() {
 
           {!isLook && (
             <>
-              {/* 사이즈 */}
+              {/* 사이즈/색상(optionGroups) */}
               <div className="grid gap-6">
-                <div role="radiogroup" className="flex flex-wrap gap-1">
-                  {sizeOptions.map((s) => {
-                    const isSelected = String(selectedSize) === String(s);
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        role="radio"
-                        aria-checked={isSelected}
-                        aria-label={`사이즈 ${s}`}
-                        onClick={() => setSelectedSize(s)}
-                        className={[
-                          "w-9 h-9 rounded-md border-2 flex items-center justify-center font-bold transition-colors select-none text-sm outline-none ring-0",
-                          "border-red-500",
-                          isSelected ? "bg-red-500 text-white" : "bg-white text-red-600",
-                        ].join(" ")}
-                      >
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* 옵션이 없으면 UI 자체를 숨김 */}
+                {sizeOptions.length > 0 && (
+                  <div role="radiogroup" className="flex flex-wrap gap-1">
+                    {sizeOptions.map((opt) => {
+                      const isSelected = String(selectedSizeId) === String(opt.id);
+                      const soldOut = Number(opt.stock) <= 0;
 
-                {/* 색상 */}
-                <div role="radiogroup" className="flex flex-wrap gap-1">
-                  {colorOptions.map((color) => {
-                    const isSelected = selectedColor === color;
-                    const bgClass =
-                      typeof color === "string" && ["white", "black"].includes(color.toLowerCase())
-                        ? (color.toLowerCase() === "white" ? "bg-white" : "bg-black")
-                        : "";
-                    const inlineStyle = bgClass ? undefined : { backgroundColor: color };
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          aria-label={`사이즈 ${opt.value}`}
+                          onClick={() => setSelectedSizeId(opt.id)}
+                          disabled={soldOut}
+                          className={[
+                            "w-9 h-9 rounded-md border-2 flex items-center justify-center font-bold transition-colors select-none text-sm outline-none ring-0",
+                            "border-red-500",
+                            soldOut
+                              ? "opacity-30 cursor-not-allowed bg-white text-red-600"
+                              : isSelected
+                              ? "bg-red-500 text-white"
+                              : "bg-white text-red-600",
+                          ].join(" ")}
+                          title={soldOut ? "품절" : String(opt.value)}
+                        >
+                          {String(opt.value)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        role="radio"
-                        aria-checked={isSelected}
-                        aria-label={`색상 ${color}`}
-                        onClick={() => setSelectedColor(color)}
-                        className={[
-                          "w-9 h-9 rounded-md border-2 flex items-center justify-center transition select-none outline-none ring-0",
-                          "border-red-500",
-                          bgClass,
-                        ].join(" ")}
-                        style={inlineStyle}
-                        title={String(color)}
-                      >
-                        {isSelected && <span className="w-3 h-3 rounded-full bg-red-500" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                {colorOptions.length > 0 && (
+                  <div role="radiogroup" className="flex flex-wrap gap-1">
+                    {colorOptions.map((opt) => {
+                      const isSelected = String(selectedColorId) === String(opt.id);
+                      const soldOut = Number(opt.stock) <= 0;
+
+                      // UI용 배경 처리(값이 black/white면 색상칩)
+                      const color = String(opt.value ?? "");
+                      const bgClass =
+                        ["white", "black"].includes(color.toLowerCase())
+                          ? color.toLowerCase() === "white"
+                            ? "bg-white"
+                            : "bg-black"
+                          : "";
+                      const inlineStyle = bgClass ? undefined : { backgroundColor: color };
+
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          aria-label={`색상 ${color}`}
+                          onClick={() => setSelectedColorId(opt.id)}
+                          disabled={soldOut}
+                          className={[
+                            "w-9 h-9 rounded-md border-2 flex items-center justify-center transition select-none outline-none ring-0",
+                            "border-red-500",
+                            bgClass,
+                            soldOut ? "opacity-30 cursor-not-allowed" : "",
+                          ].join(" ")}
+                          style={inlineStyle}
+                          title={soldOut ? "품절" : color}
+                        >
+                          {isSelected && !soldOut && (
+                            <span className="w-3 h-3 rounded-full bg-red-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
               {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
             </>
           )}
@@ -344,8 +522,8 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={handleBuyNow}
-                disabled={!selectedSize || !selectedColor}
-                aria-disabled={!selectedSize || !selectedColor}
+                disabled={buyDisabled}
+                aria-disabled={buyDisabled}
                 className="flex-[0_0_80%] h-full bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 BUY!
@@ -353,31 +531,47 @@ export default function ProductPage() {
 
               <div className="flex-[0_0_20%] h-full flex items-center justify-end gap-2">
                 <div className="flex">
-                  <button type="button" className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}>-</button>
+                  <button
+                    type="button"
+                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  >
+                    -
+                  </button>
                   <input
                     type="number"
                     min={1}
                     value={qty}
-                    onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                    onChange={(e) =>
+                      setQty(Math.max(1, Number(e.target.value) || 1))
+                    }
                     className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none 
-                               [&::-webkit-inner-spin-button]:appearance-none 
-                               [&::-webkit-outer-spin-button]:appearance-none 
-                               [-moz-appearance:textfield]"
+                              [&::-webkit-inner-spin-button]:appearance-none 
+                              [&::-webkit-outer-spin-button]:appearance-none 
+                              [-moz-appearance:textfield]"
                   />
-                  <button type="button" className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => q + 1)}>+</button>
+                  <button
+                    type="button"
+                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                    onClick={() => setQty((q) => q + 1)}
+                  >
+                    +
+                  </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleAddOnly}
-                  disabled={!selectedSize || !selectedColor}
-                  aria-disabled={!selectedSize || !selectedColor}
+                  disabled={buyDisabled}
+                  aria-disabled={buyDisabled}
                   aria-label="장바구니에 담기"
-                  className="w-7 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                  className="w-7 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <img src="/mood/bag.png" alt="bag" className="inline-flex items-center justify-center w-4 h-7"/>
+                  <img
+                    src="/mood/bag.png"
+                    alt="bag"
+                    className="inline-flex items-center justify-center w-4 h-7"
+                  />
                 </button>
               </div>
             </div>
@@ -386,35 +580,47 @@ export default function ProductPage() {
           {/* 설명 */}
           {isLook ? (
             <section className="text-sm leading-7 text-black/90 max-w-none">
-              {lookMd
-                ? <div className="whitespace-pre-line">{lookMd.trim()}</div>
-                : <p className="whitespace-pre-line">{product?.description ?? productLocal?.description ?? "룩 설명을 준비 중입니다."}</p>}
+              {lookMd ? (
+                <div className="whitespace-pre-line">{lookMd.trim()}</div>
+              ) : (
+                <p className="whitespace-pre-line">
+                  {product?.description ?? "룩 설명을 준비 중입니다."}
+                </p>
+              )}
             </section>
           ) : (
             <div>
               <div>
                 {[
-                  { key: "size",   title: "SIZE GUIDE",      content: sizeGuideMd || "사이즈 안내를 준비 중입니다." },
-                  { key: "info",   title: "PRODUCT INFO",    content: productInfoMd || "상품 정보를 준비 중입니다." },
-                  { key: "return", title: "RETURN/EXCHANGE", content: returnsMd || "교환/환불 안내를 준비 중입니다." },
-                ].map(({ key, title, content }) => (
-                  <div key={key}>
-                    <button
-                      onClick={() => toggle(key)}
-                      aria-expanded={open[key]}
-                      aria-controls={`sec-${key}`}
-                      className="relative w-full flex justify-start font-bold py-2"
-                    >
-                      <span className="pr-10">{title}</span>
-                      <span className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${open[key] ? "rotate-180" : ""}`}>▼</span>
-                    </button>
-                    {open[key] && (
-                      <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
-                        {loadingInfo ? "로딩 중…" : (content || "")}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  { key: "size", title: "SIZE GUIDE", content: sizeGuideMd },
+                  { key: "info", title: "PRODUCT INFO", content: productInfoMd },
+                  { key: "return", title: "RETURN/EXCHANGE", content: returnsMd },
+                ]
+                  // 전부 비어있으면 섹션 자체를 숨기고 싶으면 여기서 filter 가능
+                  .map(({ key, title, content }) => (
+                    <div key={key}>
+                      <button
+                        onClick={() => toggle(key)}
+                        aria-expanded={open[key]}
+                        aria-controls={`sec-${key}`}
+                        className="relative w-full flex justify-start font-bold py-2"
+                      >
+                        <span className="pr-10">{title}</span>
+                        <span
+                          className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
+                            open[key] ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▼
+                        </span>
+                      </button>
+                      {open[key] && (
+                        <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
+                          {loadingInfo ? "로딩 중…" : (content || "준비 중입니다.")}
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           )}

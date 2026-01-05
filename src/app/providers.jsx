@@ -1,9 +1,8 @@
 import React from "react";
 
-// 컨텍스트 (기존 경로 유지)
+// 컨텍스트
 import { AuthProvider } from "features/auth/context/AuthContext";
 import { OrderProvider } from "features/orders/context/OrderContext";
-import { CartProvider } from "features/cart/context/CartContext";
 
 export default function AppProviders({ children }) {
   return (

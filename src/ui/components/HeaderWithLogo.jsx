@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCart } from "features/cart/context/CartContext";
 import SideMenu from "ui/components/SideMenu";
 import LoginModal from "ui/components/LoginModal";
 import { useAuth } from "features/auth/context/AuthContext";
 
 function HeaderWithLogo({ isLoggedIn }) {
   const navigate = useNavigate();
-  const { cart } = useCart();
 
-  const { logout, authRequired, setAuthRequired, ready } = useAuth();
+  const { logout, authRequired, ready } = useAuth();
 
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -21,9 +19,8 @@ function HeaderWithLogo({ isLoggedIn }) {
     if (!ready) return;
     if (authRequired) {
       setShowLoginModal(true); // 로그인 모달 호출
-      setAuthRequired(false); // 중복 방지
     }
-  }, [authRequired, ready, setAuthRequired]);
+  }, [authRequired, ready]);
 
   const handleLogout = async () => {
     await logout();

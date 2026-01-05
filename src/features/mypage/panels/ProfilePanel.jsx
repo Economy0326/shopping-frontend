@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "features/auth/context/AuthContext";
 import { Link } from "react-router-dom";
 import { getApiErrorMessage } from "shared/api/request";
-import { UsersAPI } from "features/users/api/users";
+import { UsersAPI } from "features/users/api/users.api";
 
 export default function ProfilePanel() {
   const { user, setUser, ready } = useAuth();
@@ -14,7 +14,6 @@ export default function ProfilePanel() {
     address: { zip: "", line1: "", line2: "" },
   });
   const [saving, setSaving] = useState(false);
-  const line2Ref = useRef(null);
 
   useEffect(() => {
     if (window?.daum?.Postcode) return;
@@ -37,8 +36,6 @@ export default function ProfilePanel() {
   }, [ready, user]);
 
   const onChange = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const onAddr = (k) => (e) =>
-    setForm((f) => ({ ...f, address: { ...f.address, [k]: e.target.value } }));
 
   const onSave = async () => {
     try {

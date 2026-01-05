@@ -1,26 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { addAsk } from "features/qna/lib/askStore";
+import { QnaAPI } from "features/qna/api/qna.api";
+import { getApiErrorMessage } from "shared/api/request";
 
 export default function AskWritePage({ isLoggedIn, username, userId }) {
   const nav = useNavigate();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(""); // 주석/폼 유지용 (운영에서는 서버 권한 기반 권장)
+  const [saving, setSaving] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     if (!isLoggedIn) return alert("로그인 후 작성할 수 있어요.");
     if (!title.trim() || !body.trim()) return alert("제목/내용을 입력하세요.");
-    if (!password.trim()) return alert("비밀글 비밀번호를 입력하세요.");
+    if (!password.trim()) return alert("비밀글 비밀번호를 입력하세요."); // UI 유지
 
-    addAsk({
-      title,
-      body,
-      authorId: userId || "guest",
-      authorName: username || "guest",
-      password,
-    });
-    nav("/qna?tab=ask", { replace: true });
+    try {
+      setSaving(true);
+
+      // 비밀번호 방식은 서버에서 쓰지 않는 걸 추천
+      // 그래도 UI/주석 유지하려면 서버가 무시하도록 두거나, 별도 필드로 받도록 맞추면 됨.
+      await QnaAPI.create({
+        title,
+        body,
+        password, // 서버가 받지 않으면 무시되게 처리(백엔드와 합의)
+      });
+
+      nav("/qna?tab=ask", { replace: true });
+    } catch (e) {
+      alert(getApiErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -49,14 +60,14 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
           placeholder="제목"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          disabled={!isLoggedIn}
+          disabled={!isLoggedIn || saving}
         />
         <textarea
           className="w-full border rounded p-3 h-40 mb-2"
           placeholder="질문 내용을 입력하세요"
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          disabled={!isLoggedIn}
+          disabled={!isLoggedIn || saving}
         />
         <div className="flex items-center gap-2 mb-3">
           <label className="text-sm text-gray-600">비밀글 비밀번호</label>
@@ -66,7 +77,7 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
             placeholder="4~12자 권장"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={!isLoggedIn}
+            disabled={!isLoggedIn || saving}
           />
         </div>
 
@@ -74,13 +85,14 @@ export default function AskWritePage({ isLoggedIn, username, userId }) {
           <button
             className="px-3 py-2 border rounded bg-black text-white disabled:opacity-40"
             onClick={submit}
-            disabled={!isLoggedIn}
+            disabled={!isLoggedIn || saving}
           >
-            등록
+            {saving ? "등록 중…" : "등록"}
           </button>
           <button
             className="px-3 py-2 border rounded"
             onClick={() => nav("/qna?tab=ask")}
+            disabled={saving}
           >
             취소
           </button>

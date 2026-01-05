@@ -1,30 +1,33 @@
 import { request } from "shared/api/request";
-import { USERS, AUTH } from "shared/api/endpoints";
+import { USERS } from "shared/api/endpoints";
 import { idemHeaders } from "shared/utils/idempotency";
+import { pickData } from "shared/api/pickers";
 
-// Users (로그인 필요)
 export const UsersAPI = {
-  // GET /users/me
-  me() {
-    return request(USERS.ME);
+  async me() {
+    return pickData(await request(USERS.ME));
   },
 
-  // PATCH /users/me/profile
-  updateProfile(payload) {
-    return request(USERS.PROFILE, {
-      method: "PATCH",
-      headers: idemHeaders(),
-      body: payload,
-    });
+  // 프로필 수정
+  async updateProfile(payload) {
+    return pickData(
+      await request(USERS.PROFILE, {
+        method: "PATCH",
+        headers: idemHeaders(),
+        body: payload,
+      })
+    );
   },
 
-  // PUT /users/default-address
-  saveDefaultAddress(payload) {
-    return request(USERS.DEFAULT_ADDR, {
-      method: "PUT",
-      headers: idemHeaders(),
-      body: payload,
-    });
+  // 기본 배송지 저장
+  async saveDefaultAddress(payload) {
+    return pickData(
+      await request(USERS.DEFAULT_ADDR, {
+        method: "PUT",
+        headers: idemHeaders(),
+        body: payload,
+      })
+    );
   },
 };
 

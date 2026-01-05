@@ -14,6 +14,14 @@ export default function LoginModal({
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
+  const closeAndGo = useCallback(
+    (to) => {
+      setShowLoginModal(false);   
+      navigate(to);           
+    },
+    [navigate, setShowLoginModal]
+  );
+
   const onLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) {
       toast.error("이메일과 비밀번호를 입력해주세요");
@@ -33,12 +41,13 @@ export default function LoginModal({
       <div className="bg-red-500 text-white p-6 rounded w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-bold">LOGIN</h2>
-          <h2
+          <button
+            type="button"
             className="text-sm font-bold cursor-pointer hover:text-gray-200"
             onClick={() => setShowLoginModal(false)}
           >
             GET OUT
-          </h2>
+          </button>
         </div>
 
         <input
@@ -70,18 +79,17 @@ export default function LoginModal({
         </button>
 
         <button
-          onClick={() => navigate("/auth/signup")}
+          onClick={() => closeAndGo("/auth/signup")} 
           disabled={loading}
           className="w-full bg-white text-red-500 text-2xl font-bold rounded py-2 mb-1 disabled:opacity-60"
         >
           CREATE AN ACCOUNT
         </button>
 
-        {/* 비번 재설정 */}
         <button
-          onClick={() => navigate("/auth/password-reset")}
+          onClick={() => closeAndGo("/auth/password-reset")} 
           disabled={loading}
-          className="w-full bg-white/90 text-red-600 text-xl font-bold rounded py-2 mt-2 disabled:opacity-60"
+          className="w-full bg-white/90 text-red-600 text-md font-bold rounded py-2 mt-2 disabled:opacity-60"
         >
           FORGOT PASSWORD
         </button>

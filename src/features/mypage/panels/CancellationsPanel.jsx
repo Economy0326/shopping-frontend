@@ -3,6 +3,7 @@ import { PanelShell } from "features/mypage/panels/_shared";
 import { getApiErrorMessage } from "shared/api/request";
 import { printCancellation } from "shared/utils/print";
 import { OrdersAPI } from "features/orders/api/orders.api";
+import { OrderStatus } from "shared/utils/orderPolicy";
 
 function formatWon(n) {
   const v = Number(n) || 0;
@@ -12,15 +13,17 @@ function formatWon(n) {
 function StatusBadge({ status }) {
   // 여기 status는 주문 status(CANCELED 등) 기준으로 간단히 표시
   const map = {
-    CANCELED: "취소",
+    [OrderStatus.CANCELED]: "취소",
   };
   const color =
     {
-      CANCELED: "bg-rose-100 text-rose-800",
+      [OrderStatus.CANCELED]: "bg-rose-100 text-rose-800",
     }[status] || "bg-gray-100 text-gray-700";
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${color}`}
+    >
       {map[status] || status}
     </span>
   );
@@ -33,7 +36,11 @@ function CancellationCard({ order, onPrint }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
           {rep.thumbnailUrl ? (
-            <img src={rep.thumbnailUrl} alt={rep.name} className="w-full h-full object-cover" />
+            <img
+              src={rep.thumbnailUrl}
+              alt={rep.name}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <span className="text-xs text-gray-400">No Image</span>
           )}
@@ -42,11 +49,19 @@ function CancellationCard({ order, onPrint }) {
         <div className="flex flex-col justify-center gap-1 min-w-0">
           <div className="text-base md:text-lg font-medium truncate" title={rep.name}>
             {rep.name || "상품명"}
-            {order.itemsCount > 1 && <span className="ml-1 text-sm text-gray-500">외 {order.itemsCount - 1}개</span>}
+            {order.itemsCount > 1 && (
+              <span className="ml-1 text-sm text-gray-500">
+                외 {order.itemsCount - 1}개
+              </span>
+            )}
           </div>
-          <div className="text-sm font-semibold">환불/취소금액: {formatWon(order?.amounts?.grandTotal)}</div>
+          <div className="text-sm font-semibold">
+            환불/취소금액: {formatWon(order?.amounts?.grandTotal)}
+          </div>
           <div className="text-xs text-gray-500">취소 일자: {order.createdAt}</div>
-          <div className="mt-1"><StatusBadge status={order.status} /></div>
+          <div className="mt-1">
+            <StatusBadge status={order.status} />
+          </div>
         </div>
 
         <div className="sm:ml-auto flex items-center">
@@ -79,7 +94,7 @@ export default function CancellationsPanel() {
         page,
         size: meta.size || 10,
         sort: "createdAt,desc",
-        status: "CANCELED",
+        status: OrderStatus.CANCELED, 
       });
 
       const rows = res?.data ?? [];
@@ -112,7 +127,9 @@ export default function CancellationsPanel() {
         {err && <div className="text-rose-600 mb-3">{err}</div>}
 
         {loading && list.length === 0 ? (
-          <div className="grid min-h-[60vh] place-items-center"><p>로딩중…</p></div>
+          <div className="grid min-h-[60vh] place-items-center">
+            <p>로딩중…</p>
+          </div>
         ) : list.length === 0 ? (
           <div className="grid min-h-[60vh] place-items-center">
             <p className="font-bold text-xl">결제 취소 내역이 없습니다.</p>
@@ -126,7 +143,10 @@ export default function CancellationsPanel() {
         )}
 
         {hasNext && (
-          <button onClick={() => load((meta.page || 1) + 1)} className="mt-4 w-full py-2 border">
+          <button
+            onClick={() => load((meta.page || 1) + 1)}
+            className="mt-4 w-full py-2 border"
+          >
             {loading ? "로딩…" : "더 보기"}
           </button>
         )}

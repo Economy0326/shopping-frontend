@@ -2,30 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "features/cart/context/CartContext";
 
-/** 안전 파싱 */
+// 안전 파싱
 const num = (v, f = 0) => (Number.isFinite(Number(v)) ? Number(v) : f);
 
-/** 라인아이템 고유키: sku > lineItemId > product.id + 옵션 조합 */
-const getItemKey = (it) => {
-  const pid = String(it?.product?.id ?? "");
-  const sku = it?.sku;
-  const lid = it?.lineItemId;
-  const size =
-    it?.selectedOptions?.Size ||
-    it?.size ||
-    it?.product?.selectedSize ||
-    it?.product?.size ||
-    "";
-  const color =
-    it?.selectedOptions?.Color ||
-    it?.color ||
-    it?.product?.selectedColor ||
-    it?.product?.color ||
-    "";
-  return String(sku || lid || `${pid}:${size}:${color}`);
-};
-
-/** 같은 product.id 끼리 묶기 (이미지 1장 + 옵션 요약용) */
+// 같은 product.id 끼리 묶기 (이미지 1장 + 옵션 요약용)
 const groupByProduct = (cart) => {
   const map = new Map();
   (cart || [])
@@ -38,33 +18,36 @@ const groupByProduct = (cart) => {
   return Array.from(map.values());
 };
 
-/** 옵션 요약 포맷: 수량(2),size(1),color(white) */
-const formatOption = (it) => {
-  const size =
-    it?.selectedOptions?.Size ??
-    it?.size ??
-    it?.product?.selectedSize ??
-    it?.product?.size ??
-    "-";
-  const color =
-    it?.selectedOptions?.Color ??
-    it?.color ??
-    it?.product?.selectedColor ??
-    it?.product?.color ??
-    "-";
-  const qty = it?.quantity ?? 1;
-  return `수량(${qty}),size(${String(size)}),color(${String(color)})`;
-};
+// 썸네일 우선순위: product.images[0] > product.image > (레거시) item.image > 빈 문자열
+const getThumb = (product) => product?.images?.[0] ?? product?.image ?? "";
 
-/** 썸네일 우선순위: product.images[0] > product.image > (레거시) item.image > 빈 문자열 */
-const getThumb = (item) =>
-  item?.product?.images?.[0] ??
-  item?.product?.image ??
-  item?.image ??
-  "";
-
-/** 상품 가격: product.price 숫자 */
+// 상품 가격: product.price 숫자
 const getPrice = (product) => num(product?.price, 0);
+
+/**
+ * 옵션 요약(운영버전)
+ * - CartContext가 options.optionIds를 저장하도록 바뀜
+ * - value(black/M)는 서버에서만 알 수 있음 → CartPage에서 굳이 표시하려면 "옵션ID"로 요약하거나,
+ *   혹은 "Order 생성 전 최종 확인" 단계에서 서버로 optionIds->summary를 내려주는 방식이 필요.
+ *
+ * 여기서는 운영 안정성을 위해 "옵션ID" 기반 요약으로 표시.
+ * (원하면 ProductPage에서 addToCart 할 때 optionLabels도 같이 저장하도록 확장 가능)
+ */
+const formatOption = (it) => {
+  const qty = it?.qty ?? 1;
+
+  const labels = Array.isArray(it?.options?.optionLabels)
+    ? it.options.optionLabels
+    : [];
+
+  if (labels.length) {
+    return `수량(${qty}), ${labels.join(" / ")}`;
+  }
+
+  const ids = Array.isArray(it?.options?.optionIds) ? it.options.optionIds : [];
+  const opt = ids.length ? `옵션ID(${ids.join(",")})` : "옵션없음";
+  return `수량(${qty}), ${opt}`;
+};
 
 export default function CartPage() {
   const { cart, removeFromCart } = useCart();
@@ -74,8 +57,6 @@ export default function CartPage() {
   const [selectedGroup, setSelectedGroup] = useState({});
 
   const isEmpty = !cart || cart.length === 0;
-
-  // 그룹 목록
   const groups = useMemo(() => groupByProduct(cart || []), [cart]);
 
   // 그룹 id 시그니처(상품 추가/삭제될 때만 선택 상태 동기화)
@@ -108,6 +89,7 @@ export default function CartPage() {
 
   // 선택된 라인아이템만 추출(결제/합계 계산용)
   const selectedItems = useMemo(() => {
+    // flatMap: 각 요소를 배열로 반환해서 모두 평탄화하여 하나의 배열로 만듦
     return groups.flatMap((g) =>
       selectedGroup[String(g.product.id)] ? g.items : []
     );
@@ -115,10 +97,12 @@ export default function CartPage() {
 
   const selectedTotal = useMemo(() => {
     return selectedItems.reduce((sum, it) => {
-      return sum + getPrice(it?.product) * (it?.quantity ?? 1);
+      // qty 필드 기준으로 합계 계산(기존 quantity -> qty로 통일)
+      return sum + getPrice(it?.product) * (it?.qty ?? 1);
     }, 0);
   }, [selectedItems]);
 
+  // toggleAll -> 전체 반전
   const toggleAll = () => {
     const target = !allChecked;
     const next = {};
@@ -128,14 +112,16 @@ export default function CartPage() {
     setSelectedGroup(next);
   };
 
+  // toggleGroup -> 해당 그룹 반전
   const toggleGroup = (pid) => {
     const id = String(pid);
     setSelectedGroup((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // 그룹 삭제: 해당 상품의 모든 라인아이템 삭제
+  // 그룹 삭제 -> 해당 상품의 모든 라인아이템 삭제
   const removeGroup = (group) => {
-    group.items.forEach((it) => removeFromCart(getItemKey(it))); // removeFromCart가 lineKey/sku 지원
+    // CartContext의 removeFromCart는 lineKey(= it.key)로 삭제
+    group.items.forEach((it) => removeFromCart(it.key));
   };
 
   return (
@@ -144,20 +130,18 @@ export default function CartPage() {
         What's in my bag?
       </div>
 
-      {/* 빈 상태 */}
       {isEmpty && (
         <div className="flex flex-col items-center justify-center py-10">
-          <div className="text-5xl p-16 text-center font-bold mb-6">NOTHING</div>
+          <div className="text-5xl p-16 text-center font-bold mb-6">
+            NOTHING
+          </div>
         </div>
       )}
 
-      {/* 상품 있을 때 */}
       {!isEmpty && (
         <>
-          {/* 상단 바 (전체 선택/개수) */}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
             <div className="flex items-center gap-4">
-              {/* 전체 선택 버튼 */}
               <button
                 type="button"
                 onClick={toggleAll}
@@ -167,40 +151,38 @@ export default function CartPage() {
               >
                 <span
                   className={`w-5 h-5 border-2 flex items-center justify-center leading-none
-                    ${allChecked ? "font-bold border-red-500 text-red-500" : "font-bold border-gray-300 text-gray-300"}`}
+                    ${
+                      allChecked
+                        ? "font-bold border-red-500 text-red-500"
+                        : "font-bold border-gray-300 text-gray-300"
+                    }`}
                 >
                   ✓
                 </span>
-                <span className="text-xl font-bold md:text-base font-medium">전체 선택</span>
+                <span className="text-xl font-bold md:text-base font-medium">
+                  전체 선택
+                </span>
               </button>
 
-              {/* 선택 / 총 */}
               <span className="text-gray-600">
                 선택 {selectedItems.length} / 총 {cart.length}개
               </span>
             </div>
           </div>
 
-          {/* 제품 카드 그리드 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group) => {
               const p = group.product;
               const pid = String(p.id);
               const checked = !!selectedGroup[pid];
 
-              // 옵션 요약: "option : 수량(2),size(1),color(white) / 수량(1),size(1),color(black)"
               const summary = group.items.map(formatOption).join(" / ");
 
-              // 썸네일
-              const thumb =
-                p?.images?.[0] ??
-                p?.image ??
-                group.items.find((it) => getThumb(it))?.image ??
-                "";
+              // 썸네일은 product 기준으로
+              const thumb = getThumb(p) || "/mood/nothing.png";
 
               return (
                 <div key={pid} className="p-4">
-                  {/* 체크 버튼 */}
                   <div className="mb-2">
                     <button
                       type="button"
@@ -219,14 +201,12 @@ export default function CartPage() {
                     </button>
                   </div>
 
-                  {/* 이미지 (안쪽 우상단 X 삭제) */}
                   <div className="relative">
                     <img
                       src={thumb}
                       alt={p?.name || "item"}
                       className="w-full aspect-square object-cover rounded-xl"
                       onError={(e) => {
-                        // 경로 깨질 때 대비: public에 placeholder가 있다면 교체
                         e.currentTarget.src = "/mood/nothing.png";
                       }}
                     />
@@ -242,17 +222,14 @@ export default function CartPage() {
                     </button>
                   </div>
 
-                  {/* 상품명 */}
                   <div className="mt-3 text-2xl text-center font-bold line-clamp-2">
                     {p?.name}
                   </div>
 
-                  {/* 가격 */}
                   <div className="mt-3 text-xl text-center font-bold line-clamp-2">
                     {getPrice(p).toLocaleString()}WON
                   </div>
 
-                  {/* 옵션 요약 (라인 목록·번호 없음) */}
                   <div className="mt-3 text-xl text-center font-bold">
                     OPTION : {summary}
                   </div>
@@ -261,7 +238,6 @@ export default function CartPage() {
             })}
           </div>
 
-          {/* 우하단 고정 결제 박스 */}
           <div className="fixed bottom-4 right-4 z-50">
             <div className="flex items-center gap-3 bg-white border rounded-xl shadow px-4 py-3">
               <div className="text-lg">
@@ -275,11 +251,13 @@ export default function CartPage() {
                 onClick={() =>
                   navigate("/checkout", {
                     state: {
+                      // 선택결제: key를 같이 넘겨서 Checkout 성공 후 선택 항목만 제거 가능
+                      selectedKeys: selectedItems.map((it) => it.key),
                       selectedItems: selectedItems.map((it) => ({
-                        id: it?.product?.id,
-                        quantity: it?.quantity,
-                        sku: it?.sku,
-                        selectedOptions: it?.selectedOptions,
+                        key: it.key,
+                        productId: it?.product?.id,
+                        qty: it?.qty,
+                        options: it?.options, // optionIds 포함
                       })),
                     },
                   })

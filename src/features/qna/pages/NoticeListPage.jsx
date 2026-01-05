@@ -1,12 +1,29 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { loadNotices } from "features/qna/lib/noticeStore";
+import { NoticeAPI } from "features/qna/api/notice.api";
+import { getApiErrorMessage } from "shared/api/request";
 
 export default function NoticeListPage() {
   const [notices, setNotices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setErr("");
+      const res = await NoticeAPI.list({ page: 1, size: 200 });
+      setNotices(res?.data ?? []);
+    } catch (e) {
+      setErr(getApiErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setNotices(loadNotices());
+    load();
+    // eslint-disable-next-line
   }, []);
 
   return (
@@ -14,6 +31,9 @@ export default function NoticeListPage() {
       <header className="flex items-center justify-between">
         <h2 className="text-xl font-bold">공지</h2>
       </header>
+
+      {err && <div className="text-sm text-red-500">{err}</div>}
+      {loading && notices.length === 0 && <div className="text-sm text-gray-500">불러오는 중…</div>}
 
       <ul className="bg-white space-y-1">
         {notices.map((n) => (
@@ -37,7 +57,7 @@ export default function NoticeListPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{n.title}</p>
                   <time className="block text-xs text-gray-500">
-                    {new Date(n.createdAt).toLocaleString()}
+                    {n.createdAt ? new Date(n.createdAt).toLocaleString() : "-"}
                   </time>
                 </div>
               </div>
@@ -45,7 +65,7 @@ export default function NoticeListPage() {
           </li>
         ))}
 
-        {notices.length === 0 && (
+        {notices.length === 0 && !loading && (
           <li className="p-6 text-center text-sm text-gray-500">
             등록된 공지가 없습니다.
           </li>

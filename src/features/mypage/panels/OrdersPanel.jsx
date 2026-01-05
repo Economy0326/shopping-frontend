@@ -4,6 +4,7 @@ import { OrdersAPI } from "features/orders/api/orders.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { statusLabel, statusColor } from "shared/utils/constants";
 import { Link } from "react-router-dom";
+import { canConfirm } from "shared/utils/orderPolicy";
 
 function formatWon(n) {
   const v = Number(n) || 0;
@@ -12,7 +13,11 @@ function formatWon(n) {
 
 function StatusBadge({ status }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(status)}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(
+        status
+      )}`}
+    >
       {statusLabel(status)}
     </span>
   );
@@ -20,14 +25,18 @@ function StatusBadge({ status }) {
 
 function OrderCard({ order, onConfirm }) {
   const rep = order.representativeItem || {};
-  const canConfirm = order.status === "SHIPPED"; // 명세: confirm -> DELIVERED, SHIPPED에서만 노출
+  const canConfirmBtn = canConfirm(order.status);
 
   return (
     <article className="w-full rounded-2xl border bg-white shadow-sm p-4 md:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
           {rep.thumbnailUrl ? (
-            <img src={rep.thumbnailUrl} alt={rep.name} className="w-full h-full object-cover" />
+            <img
+              src={rep.thumbnailUrl}
+              alt={rep.name}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <span className="text-xs text-gray-400">No Image</span>
           )}
@@ -35,17 +44,26 @@ function OrderCard({ order, onConfirm }) {
 
         <div className="flex flex-col justify-center gap-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="text-base md:text-lg font-medium truncate" title={rep.name}>
+            <div
+              className="text-base md:text-lg font-medium truncate"
+              title={rep.name}
+            >
               {rep.name || "상품명"}
               {order.itemsCount > 1 && (
-                <span className="ml-1 text-sm text-gray-500">외 {order.itemsCount - 1}개</span>
+                <span className="ml-1 text-sm text-gray-500">
+                  외 {order.itemsCount - 1}개
+                </span>
               )}
             </div>
             <StatusBadge status={order.status} />
           </div>
 
-          {rep.optionSummary && <div className="text-sm text-gray-600">{rep.optionSummary}</div>}
-          <div className="text-sm font-semibold">{formatWon(order?.amounts?.grandTotal)}</div>
+          {rep.optionSummary && (
+            <div className="text-sm text-gray-600">{rep.optionSummary}</div>
+          )}
+          <div className="text-sm font-semibold">
+            {formatWon(order?.amounts?.grandTotal)}
+          </div>
 
           <div className="mt-2">
             <Link to={`/order/${order.id}`} className="text-sm underline">
@@ -64,7 +82,7 @@ function OrderCard({ order, onConfirm }) {
             </div>
           </div>
 
-          {canConfirm && (
+          {canConfirmBtn && (
             <button
               onClick={() => onConfirm(order.id)}
               className="sm:mt-3 ml-3 sm:ml-0 inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium bg-black text-white hover:opacity-90 transition"
@@ -90,7 +108,11 @@ export default function OrdersPanel() {
     try {
       setLoading(true);
       // 명세: GET /orders -> { data:[...], meta:{page,size,total} }
-      const res = await OrdersAPI.list({ page, size: meta.size || 10, sort: "createdAt,desc" });
+      const res = await OrdersAPI.list({
+        page,
+        size: meta.size || 10,
+        sort: "createdAt,desc",
+      });
       const rows = res?.data ?? [];
       const m = res?.meta ?? { page, size: meta.size || 10, total: 0 };
 
@@ -116,9 +138,10 @@ export default function OrdersPanel() {
   const onConfirm = async (orderId) => {
     try {
       await OrdersAPI.confirm(orderId);
-      setList((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: "DELIVERED" } : o))
-      );
+
+      // 재조회: 서버의 최신 상태를 다시 받아서 list 갱신
+      await load(1);
+      
     } catch (e) {
       alert(getApiErrorMessage(e));
     }
@@ -132,7 +155,9 @@ export default function OrdersPanel() {
         {err && <div className="text-rose-600 mb-3">{err}</div>}
 
         {loading && list.length === 0 ? (
-          <div className="grid min-h-[60vh] place-items-center"><p>로딩중…</p></div>
+          <div className="grid min-h-[60vh] place-items-center">
+            <p>로딩중…</p>
+          </div>
         ) : list.length === 0 ? (
           <div className="grid min-h-[60vh] place-items-center">
             <p className="font-bold text-xl">주문 내역이 없습니다.</p>
