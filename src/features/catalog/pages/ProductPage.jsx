@@ -8,7 +8,7 @@ import { SystemAPI } from "shared/api/system.api";
 import { pickData } from "shared/api/pickers"; // { data: ... } 껍데기 벗기기
 import { getApiErrorMessage } from "shared/api/request";
 
-//  정책키는 상수로 고정(명세 확정)
+// 정책키는 상수로 고정
 // 운영자가 /system/policies/returns 만 수정하면 전상품에 반영됨
 const RETURNS_POLICY_KEY = "returns";
 
@@ -28,6 +28,8 @@ function TriangleArrow({
   );
 }
 
+// variant => 둘 다 선택은 해당 조합 재고로 판단
+// 하나만 선택은 해당 옵션을 포함하는 variant 중 stock>0 있으면 가능
 export default function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,6 +124,55 @@ export default function ProductPage() {
 
   const sizeOptions = Array.isArray(sizeGroup?.options) ? sizeGroup.options : [];
   const colorOptions = Array.isArray(colorGroup?.options) ? colorGroup.options : [];
+
+  // Variant 목록 (조합 재고)
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+
+  // optionIds 배열 비교용(정렬 후 문자열 키)
+  const keyOf = (ids = []) =>
+    ids
+      .filter(Boolean)
+      .map((n) => Number(n))
+      .sort((a, b) => a - b)
+      .join(",");
+
+  // 현재 선택(또는 후보) optionIds로 variant 찾기
+  const findVariantByOptionIds = (ids = []) => {
+    const k = keyOf(ids);
+    return variants.find((v) => keyOf(v?.optionIds || []) === k) || null;
+  };
+
+  // 현재 선택된 조합 variant
+  const selectedVariant =
+    !isLook && selectedSizeId && selectedColorId
+      ? findVariantByOptionIds([selectedSizeId, selectedColorId])
+      : null;
+
+  // 특정 옵션(버튼)이 "선택 가능"한지 계산
+  // - 둘 다 선택이면 해당 조합 재고로 판단
+  // - 하나만 선택이면 해당 옵션을 포함하는 variant 중 stock>0 있으면 가능
+  const isOptionAvailable = (groupKey, optionId) => {
+    if (isLook) return true;
+
+    const sizeId = groupKey === "size" ? optionId : selectedSizeId;
+    const colorId = groupKey === "color" ? optionId : selectedColorId;
+
+    // 둘 다 있으면 조합 variant 재고
+    if (sizeId && colorId) {
+      const v = findVariantByOptionIds([sizeId, colorId]);
+      return Boolean(v && Number(v.stock) > 0);
+    }
+
+    // 하나만 있으면 partial 포함 variant 중 재고 있는지
+    const partial = [sizeId, colorId].filter(Boolean).map(Number);
+    if (partial.length === 0) return true;
+
+    return variants.some((v) => {
+      const ids = Array.isArray(v?.optionIds) ? v.optionIds : [];
+      const ok = partial.every((x) => ids.includes(x));
+      return ok && Number(v.stock) > 0;
+    });
+  };
 
   /**
    * (공통 정책) 교환/반품/환불 안내
@@ -240,33 +291,27 @@ export default function ProductPage() {
   }
 
   const validateSelection = () => {
-    // 룩북은 옵션 선택 없음
-    if (!isLook) {
-      // 옵션 그룹이 존재하면 선택 강제
-      const needsSize = Array.isArray(sizeOptions) && sizeOptions.length > 0;
-      const needsColor = Array.isArray(colorOptions) && colorOptions.length > 0;
+    if (isLook) return true;
 
-      if ((needsSize && !selectedSizeId) || (needsColor && !selectedColorId)) {
-        setError("색상과 사이즈를 선택해주세요.");
-        return false;
-      }
+    const needsSize = Array.isArray(sizeOptions) && sizeOptions.length > 0;
+    const needsColor = Array.isArray(colorOptions) && colorOptions.length > 0;
 
-      // stock=0이면 선택 불가(버튼이 disabled라 보통 여기까지 안 오지만 방어)
-      if (needsSize) {
-        const opt = sizeOptions.find((o) => String(o.id) === String(selectedSizeId));
-        if (opt && Number(opt.stock) <= 0) {
-          setError("해당 사이즈는 품절입니다.");
-          return false;
-        }
-      }
-      if (needsColor) {
-        const opt = colorOptions.find((o) => String(o.id) === String(selectedColorId));
-        if (opt && Number(opt.stock) <= 0) {
-          setError("해당 색상은 품절입니다.");
-          return false;
-        }
-      }
+    if ((needsSize && !selectedSizeId) || (needsColor && !selectedColorId)) {
+      setError("색상과 사이즈를 선택해주세요.");
+      return false;
     }
+
+    // 선택 조합이 실제 variant로 존재하는지 + 재고 확인
+    const v = findVariantByOptionIds([selectedSizeId, selectedColorId]);
+    if (!v) {
+      setError("선택한 옵션 조합을 찾을 수 없습니다.");
+      return false;
+    }
+    if (Number(v.stock) <= 0) {
+      setError("해당 옵션은 품절입니다.");
+      return false;
+    }
+
     return true;
   };
 
@@ -297,10 +342,15 @@ export default function ProductPage() {
         : []),
     ].filter((s) => s && !s.endsWith(":"));
 
+    // variantid 계산
+    const v = findVariantByOptionIds(optionIds);
+
     addToCart(
       product,
       Math.max(1, qty),
-      optionIds.length ? { optionIds, optionLabels } : {}
+      optionIds.length
+        ? { optionIds, optionLabels, variantId: v?.id }
+        : {}
     );
     
     return true;
@@ -323,12 +373,13 @@ export default function ProductPage() {
 
   const categories = ["all", "outer", "top", "bottom", "acc", "for-artist"];
 
-  // 버튼 비활성 조건(옵션이 있으면 선택 전까지 비활성)
+  // 버튼 비활성 조건
   const buyDisabled =
     (!isLook && sizeOptions.length > 0 && !selectedSizeId) ||
-    (!isLook && colorOptions.length > 0 && !selectedColorId);
-
-  return (
+    (!isLook && colorOptions.length > 0 && !selectedColorId) ||
+    (!isLook && selectedVariant && Number(selectedVariant.stock) <= 0);
+  
+    return (
     <>
       {/* 카테고리/탭 */}
       <header>
@@ -440,7 +491,7 @@ export default function ProductPage() {
                   <div role="radiogroup" className="flex flex-wrap gap-1">
                     {sizeOptions.map((opt) => {
                       const isSelected = String(selectedSizeId) === String(opt.id);
-                      const soldOut = Number(opt.stock) <= 0;
+                      const soldOut = !isOptionAvailable("size", opt.id);
 
                       return (
                         <button
@@ -473,7 +524,7 @@ export default function ProductPage() {
                   <div role="radiogroup" className="flex flex-wrap gap-1">
                     {colorOptions.map((opt) => {
                       const isSelected = String(selectedColorId) === String(opt.id);
-                      const soldOut = Number(opt.stock) <= 0;
+                      const soldOut = !isOptionAvailable("color", opt.id);
 
                       // UI용 배경 처리(값이 black/white면 색상칩)
                       const color = String(opt.value ?? "");

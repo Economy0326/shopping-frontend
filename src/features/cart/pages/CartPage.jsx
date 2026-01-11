@@ -36,6 +36,11 @@ const getPrice = (product) => num(product?.price, 0);
 const formatOption = (it) => {
   const qty = it?.qty ?? 1;
 
+  // 1순위: variantId 표시
+  const vid = it?.options?.variantId;
+  if (vid) return `수량(${qty}), VARIANT(${vid})`;
+
+  // 2순위: optionLabels
   const labels = Array.isArray(it?.options?.optionLabels)
     ? it.options.optionLabels
     : [];
@@ -44,6 +49,7 @@ const formatOption = (it) => {
     return `수량(${qty}), ${labels.join(" / ")}`;
   }
 
+  // 3순위: optionIds (전환기/레거시)
   const ids = Array.isArray(it?.options?.optionIds) ? it.options.optionIds : [];
   const opt = ids.length ? `옵션ID(${ids.join(",")})` : "옵션없음";
   return `수량(${qty}), ${opt}`;

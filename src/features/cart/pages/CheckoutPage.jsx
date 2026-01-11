@@ -15,7 +15,6 @@ export default function CheckoutPage() {
   const { user } = useAuth();
 
   // CartPage에서 넘어온 선택결제 데이터
-  // - selectedItems는 {key}만 있어도 되고(렌더는 cart에서 매칭)
   const selectedItemsFromState = location.state?.selectedItems || null;
   const selectedKeysFromState = location.state?.selectedKeys || null;
 
@@ -23,9 +22,7 @@ export default function CheckoutPage() {
   const payItems = useMemo(() => {
     if (Array.isArray(selectedItemsFromState) && selectedItemsFromState.length) {
       const map = new Map(cart.map((it) => [it.key, it]));
-      return selectedItemsFromState
-        .map((s) => map.get(s.key))
-        .filter(Boolean);
+      return selectedItemsFromState.map((s) => map.get(s.key)).filter(Boolean);
     }
     return cart;
   }, [selectedItemsFromState, cart]);
@@ -76,8 +73,15 @@ export default function CheckoutPage() {
   const requiredFilled = (...keys) =>
     keys.every((k) => String(form[k] ?? "").trim().length > 0);
 
+  // variantId 없으면 결제 불가 (운영 안정성)
+  const hasAllVariantIds = useMemo(() => {
+    if (!payItems.length) return false;
+    return payItems.every((it) => Boolean(it?.options?.variantId));
+  }, [payItems]);
+
   const canSubmit =
     payItems.length > 0 &&
+    hasAllVariantIds &&
     requiredFilled("name", "phone", "zipcode", "address1", "address2", "depositor") &&
     !!agree;
 
@@ -115,25 +119,30 @@ export default function CheckoutPage() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    if (!payItems.length) {
+      alert("결제할 상품이 없습니다.");
+      return;
+    }
+
     if (!canSubmit) {
+      if (!hasAllVariantIds) {
+        alert("옵션/재고 정보(variant)가 누락된 상품이 있습니다. 장바구니에서 다시 담아주세요.");
+        return;
+      }
       alert("필수 항목을 확인해주세요.");
       return;
     }
 
     /**
-     * 명세 기준: 주문 상태/만료/금액은 서버가 결정
-     * 프론트는 최소 payload만 전송
-     *
-     * items는 optionIds(= option.id) 기반
-     * - CartContext가 options.optionIds로 저장하고 있음
+     * Variant 기준 주문 payload
+     * items: [{ productId, qty, variantId }]
      */
     const payload = {
       items: payItems.map((it) => ({
         productId: it?.product?.id,
         qty: it?.qty || 1,
-        ...(Array.isArray(it?.options?.optionIds) && it.options.optionIds.length
-          ? { optionIds: it.options.optionIds }
-          : {}),
+        variantId: Number(it?.options?.variantId),
       })),
       receiver: {
         name: form.name,
@@ -155,7 +164,6 @@ export default function CheckoutPage() {
     try {
       const res = await OrdersAPI.checkout(payload);
 
-      // 서버가 { data: { id: "O1" } } 형태로 주는 걸 권장
       const newId = res?.data?.id ?? res?.id ?? res;
 
       // 선택결제면 선택 항목만 제거, 아니면 전체 clear
@@ -177,6 +185,13 @@ export default function CheckoutPage() {
 
       <section className="border rounded p-4">
         <h2 className="font-bold mb-2">주문 상품</h2>
+
+        {!hasAllVariantIds && payItems.length > 0 && (
+          <p className="text-sm text-rose-600 mb-2">
+            일부 상품에 variantId가 없습니다. 장바구니에서 다시 담아주세요.
+          </p>
+        )}
+
         <ul className="space-y-2">
           {payItems.map((it) => {
             const p = it.product || {};
@@ -194,6 +209,7 @@ export default function CheckoutPage() {
             );
           })}
         </ul>
+
         <div className="mt-3 text-right font-bold">
           합계: {total.toLocaleString()}원
         </div>
@@ -251,20 +267,13 @@ export default function CheckoutPage() {
               readOnly
               placeholder="우편번호"
             />
-            <button
-              type="button"
-              onClick={openPostcode}
-              className="border rounded px-3"
-            >
+            <button type="button" onClick={openPostcode} className="border rounded px-3">
               주소검색
             </button>
           </div>
-          <input
-            className="border rounded p-2"
-            value={form.address1}
-            readOnly
-            placeholder="기본주소"
-          />
+
+          <input className="border rounded p-2" value={form.address1} readOnly placeholder="기본주소" />
+
           <input
             id="address2"
             className="border rounded p-2"
@@ -295,12 +304,7 @@ export default function CheckoutPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <input
-            id="agree"
-            type="checkbox"
-            checked={agree}
-            onChange={(e) => setAgree(e.target.checked)}
-          />
+          <input id="agree" type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           <label htmlFor="agree" className="text-sm">
             주문 정보 제공 및 결제 진행에 동의합니다.
           </label>
@@ -320,11 +324,7 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="px-4 py-3 rounded bg-black text-white disabled:opacity-40"
-        >
+        <button type="submit" disabled={!canSubmit} className="px-4 py-3 rounded bg-black text-white disabled:opacity-40">
           주문 생성
         </button>
       </form>

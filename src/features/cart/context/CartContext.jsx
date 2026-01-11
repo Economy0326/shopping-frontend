@@ -54,14 +54,20 @@ function normalizeOptions(options = {}) {
     ? options.optionLabels.map(String).filter((v) => v.trim().length > 0)
     : [];
 
-  return {
+  const variantId =
+    options.variantId != null ? Number(options.variantId) : null;
+  
+    return {
     ...(uniq.length ? { optionIds: uniq } : {}),
     ...(optionLabels.length ? { optionLabels } : {}),
+    ...(variantId ? { variantId } : {}),
   };
 }
 
 function makeLineKey(productId, options = {}) {
   const o = normalizeOptions(options);
+  if (o.variantId) return `${String(productId)}:v:${String(o.variantId)}`;
+  
   const ids = Array.isArray(o.optionIds) ? o.optionIds : [];
   // productId:101:201 같은 형태 (옵션 없으면 productId만)
   return ids.length ? `${String(productId)}:${ids.join(":")}` : String(productId);
