@@ -12,8 +12,8 @@ export const AuthAPI = {
   },
 
   // GET /auth/me
-  async me() {
-    return request(AUTH.ME);
+  async me({ silentAuth = false } = {}) {
+    return request(AUTH.ME, { silentAuth });
   },
 
   // POST /auth/logout
@@ -27,10 +27,10 @@ export const AuthAPI = {
   },
 
   // POST /auth/register
-  async register({ email, password, username }) {
+  async register({ email, password }) {
     return request(AUTH.REGISTER, {
       method: "POST",
-      body: { email, password, username },
+      body: { email, password },
     });
   },
 

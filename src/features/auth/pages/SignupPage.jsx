@@ -39,7 +39,6 @@ export default function SignupPage() {
       await AuthAPI.register({
         email: form.email.trim(),
         password: form.password,
-        username: form.username.trim() || undefined,
       });
 
       toast.success("회원가입 완료! 로그인해 주세요.");

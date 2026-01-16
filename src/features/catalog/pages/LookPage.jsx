@@ -1,8 +1,8 @@
-//룩 카테고리 페이지
 import { useEffect, useState } from "react";
 import LookGrid from "ui/components/look/LookGrid";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { PRODUCTS } from "shared/api/endpoints";
+import { pickData } from "shared/api/pickers";
 
 export default function LookPage() {
   const [list, setList] = useState([]);
@@ -14,10 +14,13 @@ export default function LookPage() {
       setLoading(true);
       setErr("");
 
-      // 예: GET /products?category=look
-      const res = await request(PRODUCTS.ROOT, { params: { category: "look" } });
-      const rows = res?.data ?? res ?? [];
-      setList(Array.isArray(rows) ? rows : []);
+      const res = await request(PRODUCTS.LIST, {
+        params: { category: "look" },
+      });
+
+      const data = pickData(res);
+      const rows = Array.isArray(data) ? data : [];
+      setList(rows);
     } catch (e) {
       setErr(getApiErrorMessage(e));
       setList([]);
@@ -33,10 +36,7 @@ export default function LookPage() {
   return (
     <>
       <header className="bg-white py-8 text-center">
-        <h1
-          className={`relative sm:-translate-x-1 md:-translate-x-1 xl:-translate-x-1 text-red-500 
-                      text-4xl xl:text-5xl font-bold uppercase px-2 sm:-translate-y-2`}
-        >
+        <h1 className="text-red-500 text-4xl xl:text-5xl font-bold uppercase px-2">
           LOOK
         </h1>
       </header>
@@ -57,13 +57,7 @@ export default function LookPage() {
             <img
               src="/mood/nothing.png"
               alt="nothing"
-              className="
-                w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain
-                -translate-x-2 -translate-y-14
-                sm:-translate-x-6 sm:-translate-y-12
-                md:-translate-x-10 md:-translate-y-10
-                xl:-translate-x-8 xl:-translate-y-20
-              "
+              className="w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain"
             />
           </div>
         )}

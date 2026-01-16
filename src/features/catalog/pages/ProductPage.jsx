@@ -104,7 +104,7 @@ export default function ProductPage() {
 
   // product가 null일 때 접근 안전하게 처리
   const images = product?.images ?? [];
-  const isLook = product?.category === "look";
+  const isLook = product?.categorySlug === "look";
 
   // 룩북 md URL (명세: lookMdUrl optional)
   const lookMdUrl = product?.lookMdUrl ?? "";
@@ -448,7 +448,7 @@ export default function ProductPage() {
             )}
 
             <img
-              src={images[currentIndex]}
+              src={images[currentIndex]?.url}
               alt={`${product?.name || "product"} ${currentIndex + 1}`}
               className="w-full h-auto object-cover rounded-2xl"
             />

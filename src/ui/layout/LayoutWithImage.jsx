@@ -1,29 +1,14 @@
 import { ToastContainer } from "react-toastify";
-import HeaderWithLogo from "ui/components/HeaderWithLogo";
+import HeaderUnified from "ui/components/HeaderUnified";
 import FooterLegal from "ui/components/FooterLegal";
 
-function LayoutWithImage({
-  children,
-  isLoggedIn,
-  setIsLoggedIn,
-  username,
-  setUsername,
-}) {
+export default function LayoutWithImage({ children }) {
   return (
     <div className="min-h-dvh flex flex-col m-4 bg-white text-black">
-      <HeaderWithLogo
-        isLoggedIn={isLoggedIn}
-        setIsLoggedIn={setIsLoggedIn}
-        username={username}
-        setUsername={setUsername}
-      />
-
-      <main className="flex-1 ">{children}</main>
-
+      <HeaderUnified showLogo={true} />
+      <main className="flex-1">{children}</main>
       <FooterLegal />
       <ToastContainer />
     </div>
   );
 }
-
-export default LayoutWithImage;

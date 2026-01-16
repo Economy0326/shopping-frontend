@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import ProductGrid from "ui/components/ProductGrid";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { PRODUCTS } from "shared/api/endpoints";
+import { pickData } from "shared/api/pickers";
 
 export default function CategoryPage() {
   const { categoryName } = useParams();
-
   const categories = ["all", "outer", "top", "bottom", "acc", "for-artist"];
 
   const [list, setList] = useState([]);
@@ -20,20 +20,14 @@ export default function CategoryPage() {
       setLoading(true);
       setErr("");
 
-      // 명세 우선: 서버에서 category 필터링 지원하면 이 방식이 최선
-      // - all: look 제외
-      // - 특정 카테고리: category=xxx
       const params =
-        category === "all"
-          ? { excludeCategory: "look" }
-          : { category };
+        category === "all" ? { excludeCategory: "look" } : { category };
 
-      // 예: GET /products?category=top or /products?excludeCategory=look
-      const res = await request(PRODUCTS.ROOT, { params });
+      const res = await request(PRODUCTS.LIST, { params });
+      const data = pickData(res);          // data만 꺼냄
+      const rows = Array.isArray(data) ? data : [];
 
-      // 명세 형태 가정: { data: [...], meta?: {...} }
-      const rows = res?.data ?? res ?? [];
-      setList(Array.isArray(rows) ? rows : []);
+      setList(rows);
     } catch (e) {
       setErr(getApiErrorMessage(e));
       setList([]);
@@ -47,7 +41,6 @@ export default function CategoryPage() {
     // eslint-disable-next-line
   }, [category]);
 
-  // 서버가 excludeCategory를 지원하지 않는 경우를 대비한 안전장치(프론트 2차 필터)
   const filtered = useMemo(() => {
     if (!Array.isArray(list)) return [];
     if (category === "all") return list.filter((p) => p.category !== "look");
@@ -67,7 +60,9 @@ export default function CategoryPage() {
                   isActive ? "text-white" : "text-red-500"
                 }`
               }
-              style={({ isActive }) => (isActive ? { WebkitTextStroke: "1px red" } : {})}
+              style={({ isActive }) =>
+                isActive ? { WebkitTextStroke: "1px red" } : {}
+              }
             >
               {cat}
             </NavLink>
@@ -89,13 +84,7 @@ export default function CategoryPage() {
             <img
               src="/mood/nothing.png"
               alt="nothing"
-              className="
-                w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain
-                -translate-x-2 -translate-y-14
-                sm:-translate-x-6 sm:-translate-y-12
-                md:-translate-x-10 md:-translate-y-10
-                xl:-translate-x-8 xl:-translate-y-20
-              "
+              className="w-[320px] sm:w-[370px] md:w-[420px] xl:w-[470px] object-contain"
             />
           </div>
         ) : (
