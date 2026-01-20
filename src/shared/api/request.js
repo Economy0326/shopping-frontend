@@ -2,17 +2,27 @@ import { api } from "shared/api/httpClient";
 
 // axios 직접 호출 금지
 export async function request(path, options = {}) {
-  const { method = "GET", params, body, headers } = options;
+  const { method = "GET", params, body, headers = {}, silentAuth = false } = options;
 
-  const res = await api.request({
+  const finalHeaders = { ...headers };
+
+  // silentAuth는 axios custom field 말고 헤더로 태그 박기
+  if (silentAuth) finalHeaders["x-silent-auth"] = "1";
+
+  const reqConfig = {
     url: path,
     method,
     params,
-    data: body,
-    headers,
-  });
+    headers: finalHeaders,
+  };
 
-  // 서버 JSON 그대로 반환: { data, meta } 또는 { error } 등
+  // body가 명시적으로 제공된 경우에만 data 필드를 포함
+  if (body !== undefined) {
+    reqConfig.data = body;
+  }
+
+  const res = await api.request(reqConfig);
+
   return res.data;
 }
 

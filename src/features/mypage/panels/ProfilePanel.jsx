@@ -7,11 +7,10 @@ import { UsersAPI } from "features/users/api/users.api";
 export default function ProfilePanel() {
   const { user, setUser, ready } = useAuth();
   const [form, setForm] = useState({
-    username: "",
     name: "",
     email: "",
     phone: "",
-    address: { zip: "", line1: "", line2: "" },
+    address: { zip: "", address1: "", address2: "" },
   });
   const [saving, setSaving] = useState(false);
 
@@ -27,15 +26,21 @@ export default function ProfilePanel() {
     if (!ready) return;
     const u = user || {};
     setForm({
-      username: u.username || "",
       name: u.name || "",
       email: u.email || "",
       phone: u.phone || "",
-      address: u.address || { zip: "", line1: "", line2: "" },
+      // normalize address shape if backend used different keys
+      address: {
+        zip: u?.address?.zip || u?.address?.zipcode || "",
+        address1: u?.address?.address1 || u?.address?.line1 || "",
+        address2: u?.address?.address2 || u?.address?.line2 || "",
+      },
     });
   }, [ready, user]);
 
   const onChange = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const onAddressChange = (k) => (e) =>
+    setForm((f) => ({ ...f, address: { ...f.address, [k]: e.target.value } }));
 
   const onSave = async () => {
     try {
@@ -43,25 +48,23 @@ export default function ProfilePanel() {
       const res = await UsersAPI.updateProfile({
         name: form.name,
         phone: form.phone,
-        address: form.address,
+        address: {
+          zip: form.address.zip,
+          address1: form.address.address1,
+          address2: form.address.address2,
+        },
       });
 
-      // 전역 user 즉시 갱신
-      const updated = res?.data?.user || res?.user;
-      if (updated) {
+      // pickData 반환 규약: API 응답의 data 필드 자체를 반환합니다.
+      const updated = res || null;
+      if (updated && typeof updated === "object") {
         setUser(updated);
       } else {
-        // API가 user를 안 돌려주면 폼 값으로 병합
+        // API가 user 객체를 반환하지 않으면 폼 값으로 전역 user를 병합
         setUser((prev) =>
           prev
             ? { ...prev, name: form.name, phone: form.phone, address: form.address }
-            : {
-                username: form.username,
-                email: form.email,
-                name: form.name,
-                phone: form.phone,
-                address: form.address,
-              }
+            : { email: form.email, name: form.name, phone: form.phone, address: form.address }
         );
       }
 
@@ -93,10 +96,6 @@ export default function ProfilePanel() {
         {/* 아이디/이메일 (읽기 전용 -> 함부로 바꾸면 주문 목록이 바뀔 가능성 있기 때문에)  */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-16">
           <label className="block">
-            <span className="text-sm font-semibold">아이디</span>
-            <input className="w-full rounded p-3 mt-1 border-2 border-gray-300 bg-gray-50" value={form.username} readOnly />
-          </label>
-          <label className="block">
             <span className="text-sm font-semibold">이메일</span>
             <input className="w-full rounded p-3 mt-1 border-2 border-gray-300 bg-gray-50" value={form.email} readOnly />
           </label>
@@ -122,6 +121,29 @@ export default function ProfilePanel() {
           >
             {saving ? "저장 중…" : "저장"}
           </button>
+        </div>
+        {/* 주소 수정 (선택) */}
+        <div className="mt-4">
+          <h3 className="font-semibold mb-2">기본 배송지</h3>
+          <div className="grid gap-2">
+            <div className="flex gap-2">
+              <input
+                className="border rounded p-2 flex-1"
+                placeholder="우편번호"
+                value={form.address.zip}
+                onChange={onAddressChange("zip")}
+              />
+              <button
+                type="button"
+                onClick={() => alert("주소검색(다음 우편번호) 기능을 사용하세요.")}
+                className="border rounded px-3"
+              >
+                주소검색
+              </button>
+            </div>
+            <input className="border rounded p-2" placeholder="기본주소" value={form.address.address1} onChange={onAddressChange("address1")} />
+            <input className="border rounded p-2" placeholder="상세주소" value={form.address.address2} onChange={onAddressChange("address2")} />
+          </div>
         </div>
       </section>
     </div>

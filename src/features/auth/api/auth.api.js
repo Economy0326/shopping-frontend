@@ -1,32 +1,39 @@
 import { request } from "shared/api/request";
 import { AUTH } from "shared/api/endpoints";
 import { clearToken } from "shared/api/tokenMemory";
+import { markLoggedOut } from "shared/api/httpClient";
 
 export const AuthAPI = {
-  // POST /auth/login
   async login({ email, password }) {
+    // 로그인 성공 시: loggedOut 해제
+    markLoggedOut(false);
+
     return request(AUTH.LOGIN, {
       method: "POST",
       body: { email, password },
     });
   },
 
-  // GET /auth/me
-  async me({ silentAuth = false } = {}) {
-    return request(AUTH.ME, { silentAuth });
+  // 옵션(silentAuth 등)을 request()로 전달
+  async refresh(options = {}) {
+    return request(AUTH.REFRESH, { method: "POST", ...options });
   },
 
-  // POST /auth/logout
+  async me(options = {}) {
+    return request(AUTH.ME, options);
+  },
+
   async logout() {
+    // logout 시작 시점부터 자동 refresh 방지
+    markLoggedOut(true);
+
     try {
       return await request(AUTH.LOGOUT, { method: "POST" });
     } finally {
-      // access token 메모리 삭제
       clearToken();
     }
   },
 
-  // POST /auth/register
   async register({ email, password }) {
     return request(AUTH.REGISTER, {
       method: "POST",
@@ -34,28 +41,18 @@ export const AuthAPI = {
     });
   },
 
-  // POST /auth/change-password
-  async changePassword({ currentPassword, newPassword }) {
-    return request(AUTH.PW_CHANGE, {
-      method: "POST",
-      body: { currentPassword, newPassword },
-    });
-  },
-
-  // POST /auth/password-reset/request
+  // 비밀번호 재설정 요청(이메일 발송)
   async resetRequest(email) {
-    return request(AUTH.PW_RESET_REQUEST, {
-      method: "POST",
-      body: { email },
-    });
+    return request(AUTH.PW_RESET_REQUEST, { method: "POST", body: { email } });
   },
 
-  // POST /auth/password-reset/confirm
-  async resetConfirm({ token, newPassword }) {
-    return request(AUTH.PW_RESET_CONFIRM, {
-      method: "POST",
-      // token은 로그인 상태가 아닌데도 비밀번호 변경해주는 일회용 인증수단
-      body: { token, newPassword },
-    });
+  // 비밀번호 재설정 확인 (토큰 기반)
+  async resetConfirm(payload) {
+    return request(AUTH.PW_RESET_CONFIRM, { method: "POST", body: payload });
+  },
+
+  // 로그인 상태에서 비밀번호 변경
+  async changePassword(payload) {
+    return request(AUTH.PW_CHANGE, { method: "POST", body: payload });
   },
 };

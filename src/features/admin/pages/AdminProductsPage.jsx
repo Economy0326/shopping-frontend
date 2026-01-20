@@ -47,6 +47,20 @@ export default function AdminProductsPage() {
     });
   }, [rows, q, category]);
 
+  const remove = async (id) => {
+    if (!window.confirm("이 상품을 삭제할까요? (복구 불가)")) return;
+    try {
+      setLoading(true);
+      setErr("");
+      await AdminProductsAPI.remove(id);
+      await load();
+    } catch (e) {
+      setErr(getApiErrorMessage(e, "삭제 실패"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -97,6 +111,7 @@ export default function AdminProductsPage() {
               <th className="border p-2">카테고리</th>
               <th className="border p-2">가격</th>
               <th className="border p-2">바로보기</th>
+              <th className="border p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -112,6 +127,21 @@ export default function AdminProductsPage() {
                   <Link className="underline" to={`/product/${p.id}`}>
                     상품 상세 보기
                   </Link>
+                </td>
+                <td className="border p-2">
+                  <div className="flex gap-2">
+                    <Link to={`/admin/products/${p.id}/edit`} className="px-2 py-1 border rounded text-sm">
+                      편집
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded text-sm text-red-600"
+                      onClick={() => remove(p.id)}
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

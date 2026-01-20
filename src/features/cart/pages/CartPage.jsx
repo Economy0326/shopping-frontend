@@ -18,8 +18,9 @@ const groupByProduct = (cart) => {
   return Array.from(map.values());
 };
 
-// 썸네일 우선순위: product.images[0] > product.image > (레거시) item.image > 빈 문자열
-const getThumb = (product) => product?.images?.[0] ?? product?.image ?? "";
+// 썸네일 우선순위: product.images[0].url > product.image > (레거시) item.image > 빈 문자열
+const getThumb = (product) =>
+  product?.images?.[0]?.url ?? product?.image ?? "";
 
 // 상품 가격: product.price 숫자
 const getPrice = (product) => num(product?.price, 0);
@@ -38,17 +39,34 @@ const formatOption = (it) => {
 
   // 1순위: variantId 표시
   const vid = it?.options?.variantId;
-  if (vid) return `수량(${qty}), VARIANT(${vid})`;
-
-  // 2순위: optionLabels
+  // 우선: optionLabels가 있으면 그걸 보여준다
   const labels = Array.isArray(it?.options?.optionLabels)
     ? it.options.optionLabels
     : [];
 
-  if (labels.length) {
-    return `수량(${qty}), ${labels.join(" / ")}`;
+  if (labels.length) return `수량(${qty}), ${labels.join(" / ")}`;
+
+  if (vid) {
+    // variantId만 있는 경우: 제품에 포함된 variant 정보를 찾아 optionIds -> 라벨로 변환 시도
+    const product = it?.product || {};
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    const optionGroups = Array.isArray(product?.optionGroups) ? product.optionGroups : [];
+    const v = variants.find((x) => Number(x.id) === Number(vid));
+    if (v) {
+      const ids = Array.isArray(v.optionIds) ? v.optionIds : [];
+      const labelMap = optionGroups.reduce((acc, g) => {
+        (g.options || []).forEach((o) => {
+          acc[o.id] = o.value;
+        });
+        return acc;
+      }, {});
+      const derived = ids.map((id) => labelMap[id] || id).filter(Boolean);
+      if (derived.length) return `수량(${qty}), ${derived.join(" / ")}`;
+    }
+    return `수량(${qty}), VARIANT(${vid})`;
   }
 
+  // 2순위: optionLabels
   // 3순위: optionIds (전환기/레거시)
   const ids = Array.isArray(it?.options?.optionIds) ? it.options.optionIds : [];
   const opt = ids.length ? `옵션ID(${ids.join(",")})` : "옵션없음";

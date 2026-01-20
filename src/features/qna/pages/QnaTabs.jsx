@@ -1,11 +1,19 @@
 import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "features/auth/context/AuthContext";
+import FaqPanelV2 from "../panels/FaqPanelV2";
 
 const NoticeListPage = lazy(() => import("./NoticeListPage"));
 const AskListPage = lazy(() => import("./AskListPage"));
-const FaqPanel = lazy(() => import("../panels/FaqPanel"));
 
-export default function QnaTabs({ isLoggedIn, username, currentUserId, isAdmin }) {
+export default function QnaTabs() {
+  const { user, ready } = useAuth();
+
+  const isLoggedIn = !!user;
+  const username = user?.username || user?.email || "";
+  const currentUserId = user?.id ?? null;
+  const isAdmin = String(user?.role ?? "").toLowerCase() === "admin";
+
   const [sp, setSp] = useSearchParams();
   const tab = sp.get("tab") || "notice";
   const setTab = (t) => setSp({ tab: t }, { replace: false });
@@ -51,17 +59,22 @@ export default function QnaTabs({ isLoggedIn, username, currentUserId, isAdmin }
         </ul>
       </nav>
 
-      <Suspense fallback={<div className="py-6">불러오는 중…</div>}>
-        {tab === "notice" && <NoticeListPage />}
-        {tab === "ask" && (
-          <AskListPage
-            currentUserId={currentUserId}
-            currentUserName={username}
-            isAdmin={isAdmin}
-          />
-        )}
-        {tab === "faq" && <FaqPanel />}
-      </Suspense>
+      {!ready ? (
+        <div className="py-6">로딩중…</div>
+      ) : (
+        <Suspense fallback={<div className="py-6">불러오는 중…</div>}>
+          {tab === "notice" && <NoticeListPage />}
+          {tab === "ask" && (
+            <AskListPage
+              isLoggedIn={isLoggedIn}
+              currentUserId={currentUserId}
+              currentUserName={username}
+              isAdmin={isAdmin}
+            />
+          )}
+          {tab === "faq" && <FaqPanelV2 />}
+        </Suspense>
+      )}
     </main>
   );
 }

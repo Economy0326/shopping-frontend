@@ -1,15 +1,20 @@
 import axiosLib from "axios";
 import { API_ROOT } from "shared/config/env";
-import { getAccessToken, clearToken } from "./tokenMemory";
-import { authEvents } from "./authEvents";
-
-let alreadyEmitted = false;
+import { getAccessToken, clearToken } from "shared/api/tokenMemory";
+import { authEvents } from "shared/api/authEvents";
 
 export const api = axiosLib.create({
   baseURL: API_ROOT,        // ex) http://localhost:8080/api/v1
   withCredentials: true,    // refresh cookie 포함
   headers: { "Content-Type": "application/json" },
 });
+
+let alreadyEmitted = false;
+
+let loggedOut = false;
+export const markLoggedOut = (v) => {
+  loggedOut = !!v;
+};
 
 // AccessToken 자동 첨부
 api.interceptors.request.use((config) => {
@@ -19,7 +24,6 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // FormData면 Content-Type 제거해서 boundary 자동
   if (config.data instanceof FormData) {
     config.headers = config.headers ?? {};
     delete config.headers["Content-Type"];
@@ -32,20 +36,47 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// 401 처리: refresh 만료 → 재로그인 요구
 api.interceptors.response.use(
   (res) => {
     alreadyEmitted = false;
     return res;
   },
-  (error) => {
+  async (error) => {
     const status = error?.response?.status;
+    const originalRequest = error?.config;
+    const url = String(originalRequest?.url ?? "");
 
-    if (status === 401 && !alreadyEmitted) {
+    if (!originalRequest || status == null) {
+      return Promise.reject(error);
+    }
+
+    // silentAuth는 헤더로 판별 (custom field 의존 X)
+    const silentAuth = originalRequest?.headers?.["x-silent-auth"] === "1";
+
+    const emitAuthRequired = () => {
+      if (silentAuth) return;
+      if (alreadyEmitted) return;
       alreadyEmitted = true;
       clearToken();
-      authEvents.emit("AUTH_REQUIRED");
+      authEvents.emit("AUTH_REQUIRED", { silent: false, from: url });
+    };
+
+    if (loggedOut) {
+      if (status === 401) emitAuthRequired();
+      return Promise.reject(error);
     }
+
+    // refresh 실패 — AUTH_REQUIRED 이벤트 발생
+    if (url.includes("/auth/refresh") && status === 401) {
+      emitAuthRequired();
+      return Promise.reject(error);
+    }
+
+    // 일반 401에서는 자동으로 리프레시 x
+    if (status === 401) {
+      emitAuthRequired();
+    }
+
     return Promise.reject(error);
   }
 );

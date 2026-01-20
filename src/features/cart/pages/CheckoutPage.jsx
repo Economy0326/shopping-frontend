@@ -139,17 +139,26 @@ export default function CheckoutPage() {
      * items: [{ productId, qty, variantId }]
      */
     const payload = {
-      items: payItems.map((it) => ({
-        productId: it?.product?.id,
-        qty: it?.qty || 1,
-        variantId: Number(it?.options?.variantId),
-      })),
+      items: payItems.map((it) => {
+        const base = {
+          productId: Number(it?.product?.id),
+          qty: Number(it?.qty || 1),
+        };
+
+        // variantId 우선, 없으면 optionIds로 시도
+        if (it?.options?.variantId) base.variantId = Number(it.options.variantId);
+        else if (Array.isArray(it?.options?.optionIds) && it.options.optionIds.length)
+          base.optionIds = it.options.optionIds.map((v) => Number(v));
+
+        return base;
+      }),
       receiver: {
         name: form.name,
         phone: form.phone,
         email: form.email || undefined,
         address: {
-          zip: form.zipcode,
+          zip: form.zipcode || undefined,
+          zipcode: form.zipcode || undefined,
           address1: form.address1,
           address2: form.address2,
         },

@@ -139,7 +139,29 @@ export default function ProductPage() {
   // 현재 선택(또는 후보) optionIds로 variant 찾기
   const findVariantByOptionIds = (ids = []) => {
     const k = keyOf(ids);
-    return variants.find((v) => keyOf(v?.optionIds || []) === k) || null;
+    // 우선: variants[].optionIds 대응
+    const byOptionIds = variants.find((v) => keyOf(v?.optionIds || []) === k);
+    if (byOptionIds) return byOptionIds;
+
+    // 레거시/백엔드 표현: sizeOptionId / colorOptionId 로 제공하는 경우도 고려
+    if (ids.length === 2) {
+      const [a, b] = ids.map((x) => Number(x));
+      const byFields = variants.find((v) => {
+        const s = v?.sizeOptionId ? Number(v.sizeOptionId) : null;
+        const c = v?.colorOptionId ? Number(v.colorOptionId) : null;
+        return (s === a && c === b) || (s === b && c === a);
+      });
+      if (byFields) return byFields;
+    }
+
+    // 단일 옵션 매칭(예: size만 선택) — variants에 sizeOptionId / colorOptionId 필드 있으면 확인
+    if (ids.length === 1) {
+      const x = Number(ids[0]);
+      const bySingle = variants.find((v) => Number(v.sizeOptionId) === x || Number(v.colorOptionId) === x);
+      if (bySingle) return bySingle;
+    }
+
+    return null;
   };
 
   // 현재 선택된 조합 variant

@@ -43,8 +43,8 @@ export default function CategoryPage() {
 
   const filtered = useMemo(() => {
     if (!Array.isArray(list)) return [];
-    if (category === "all") return list.filter((p) => p.category !== "look");
-    return list.filter((p) => p.category === category);
+    if (category === "all") return list.filter((p) => p.categorySlug !== "look");
+    return list.filter((p) => p.categorySlug === category);
   }, [list, category]);
 
   return (
