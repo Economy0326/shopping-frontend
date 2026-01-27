@@ -17,12 +17,12 @@ export const AdminProductsAPI = {
     return request(ADMIN.PRODUCTS.ROOT, { method: "POST", body: payload });
   },
 
-  // PATCH /admin/products/{id} (명세 기준)
+  // PATCH /admin/products/{id}
   update(id, payload) {
     return request(ADMIN.PRODUCTS.ID(id), { method: "PATCH", body: payload });
   },
 
-  // DELETE /admin/products/{id} (명세 기준)
+  // DELETE /admin/products/{id}
   remove(id) {
     return request(ADMIN.PRODUCTS.ID(id), { method: "DELETE" });
   },

@@ -9,12 +9,16 @@ function formatWon(n) {
 
 function dt(s) {
   if (!s) return "-";
-  // 서버가 ISO를 준다는 전제. 그대로 보여줘도 되지만, 보기 좋게 로컬로 변환
   try {
     return new Date(s).toLocaleString();
   } catch {
     return s;
   }
+}
+
+// 단가 호환: 백엔드가 price 또는 unitPrice 둘 중 뭘 내려줘도 OK
+function getUnitPrice(it) {
+  return Number(it?.unitPrice ?? it?.price ?? 0);
 }
 
 function Badge({ text }) {
@@ -74,7 +78,7 @@ export default function AdminOrderDetailPage() {
   // 버튼 활성 조건
   const canDepositConfirm = status === "AWAITING_DEPOSIT" && !isExpired;
   const canShip = status === "DEPOSIT_CONFIRMED";
-  const canDeliverForce = status === "SHIPPED"; 
+  const canDeliverForce = status === "SHIPPED";
   const canRefund = ["CANCELED", "DELIVERED"].includes(status);
 
   const ret = order?.return ?? null;
@@ -99,7 +103,8 @@ export default function AdminOrderDetailPage() {
     const no = String(trackingNo ?? "").trim();
     if (!no) return alert("송장번호를 입력하세요.");
 
-    if (!window.confirm(`발송 등록할까요?\n택배사: ${carrier}\n송장: ${no}`)) return;
+    if (!window.confirm(`발송 등록할까요?\n택배사: ${carrier}\n송장: ${no}`))
+      return;
 
     try {
       await request(ADMIN.ORDERS.SHIP(order.id), {
@@ -132,7 +137,8 @@ export default function AdminOrderDetailPage() {
     const amount = order?.amounts?.grandTotal;
     if (!amount) return alert("환불 금액을 계산할 수 없습니다.");
 
-    if (!window.confirm(`환불 로그를 기록할까요?\n금액: ${formatWon(amount)}`)) return;
+    if (!window.confirm(`환불 로그를 기록할까요?\n금액: ${formatWon(amount)}`))
+      return;
 
     try {
       setRefundSaving(true);
@@ -257,25 +263,36 @@ export default function AdminOrderDetailPage() {
         <h2 className="font-bold mb-2">주문 상품</h2>
 
         <div className="space-y-2">
-          {(order.items ?? []).map((it, idx) => (
-            <div
-              key={`${it.productId}-${idx}`}
-              className="flex items-center justify-between gap-3 border rounded-xl p-3"
-            >
-              <div className="min-w-0">
-                <div className="font-semibold truncate">{it.name}</div>
-                {it.optionSummary && (
-                  <div className="text-xs text-gray-500">{it.optionSummary}</div>
-                )}
-                <div className="text-xs text-gray-500">
-                  수량 {it.qty} · 단가 {formatWon(it.price)}
+          {(order.items ?? []).map((it, idx) => {
+            const unit = getUnitPrice(it);
+            const qty = Number(it.qty) || 0;
+            const lineTotal = unit * qty;
+
+            return (
+              <div
+                key={`${it.productId}-${idx}`}
+                className="flex items-center justify-between gap-3 border rounded-xl p-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">{it.name}</div>
+
+                  {it.optionSummary && (
+                    <div className="text-xs text-gray-500">
+                      {it.optionSummary}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-500">
+                    수량 {qty} · 단가 {formatWon(unit)}
+                  </div>
+                </div>
+
+                <div className="text-sm font-semibold whitespace-nowrap">
+                  {formatWon(lineTotal)}
                 </div>
               </div>
-              <div className="text-sm font-semibold whitespace-nowrap">
-                {formatWon((Number(it.price) || 0) * (Number(it.qty) || 0))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-3 text-right">
@@ -300,7 +317,9 @@ export default function AdminOrderDetailPage() {
             disabled={!canDepositConfirm}
             onClick={depositConfirm}
             className={`px-4 py-2 rounded-xl text-sm text-white ${
-              canDepositConfirm ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+              canDepositConfirm
+                ? "bg-black hover:opacity-90"
+                : "bg-gray-300 cursor-not-allowed"
             }`}
           >
             입금확인
@@ -320,7 +339,9 @@ export default function AdminOrderDetailPage() {
               disabled={!canShip}
               onClick={ship}
               className={`px-4 py-2 rounded-xl text-sm text-white ${
-                canShip ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+                canShip
+                  ? "bg-black hover:opacity-90"
+                  : "bg-gray-300 cursor-not-allowed"
               }`}
             >
               발송등록
@@ -335,7 +356,6 @@ export default function AdminOrderDetailPage() {
               disabled={!canShip}
             >
               <option value="KOREA_POST">KOREA_POST</option>
-              {/* 필요해지면 확장 */}
             </select>
 
             <input
@@ -360,7 +380,9 @@ export default function AdminOrderDetailPage() {
             disabled={!canDeliverForce}
             onClick={deliverForce}
             className={`px-4 py-2 rounded-xl text-sm text-white ${
-              canDeliverForce ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+              canDeliverForce
+                ? "bg-black hover:opacity-90"
+                : "bg-gray-300 cursor-not-allowed"
             }`}
           >
             배송완료 처리
@@ -380,7 +402,9 @@ export default function AdminOrderDetailPage() {
               disabled={!canRefund || refundSaving}
               onClick={refundLog}
               className={`px-4 py-2 rounded-xl text-sm text-white ${
-                canRefund && !refundSaving ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+                canRefund && !refundSaving
+                  ? "bg-black hover:opacity-90"
+                  : "bg-gray-300 cursor-not-allowed"
               }`}
             >
               {refundSaving ? "기록 중…" : "환불기록"}
@@ -432,7 +456,9 @@ export default function AdminOrderDetailPage() {
                   disabled={!canReturnApprove}
                   onClick={approveReturn}
                   className={`w-full px-4 py-2 rounded-xl text-sm text-white ${
-                    canReturnApprove ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+                    canReturnApprove
+                      ? "bg-black hover:opacity-90"
+                      : "bg-gray-300 cursor-not-allowed"
                   }`}
                 >
                   반품 승인
@@ -452,7 +478,9 @@ export default function AdminOrderDetailPage() {
                   disabled={!canReturnReject}
                   onClick={rejectReturn}
                   className={`w-full px-4 py-2 rounded-xl text-sm text-white ${
-                    canReturnReject ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"
+                    canReturnReject
+                      ? "bg-black hover:opacity-90"
+                      : "bg-gray-300 cursor-not-allowed"
                   }`}
                 >
                   반품 거절
@@ -469,12 +497,19 @@ export default function AdminOrderDetailPage() {
         {Array.isArray(order?.refundLogs) && order.refundLogs.length > 0 ? (
           <ul className="space-y-2 text-sm">
             {order.refundLogs.map((r) => (
-              <li key={r.id} className="flex items-start justify-between gap-3 border rounded-xl p-3">
+              <li
+                key={r.id}
+                className="flex items-start justify-between gap-3 border rounded-xl p-3"
+              >
                 <div className="min-w-0">
                   <div className="font-semibold">{formatWon(r.amount)}</div>
-                  {r.memo && <div className="text-gray-600 text-xs mt-1">{r.memo}</div>}
+                  {r.memo && (
+                    <div className="text-gray-600 text-xs mt-1">{r.memo}</div>
+                  )}
                 </div>
-                <div className="text-xs text-gray-500 whitespace-nowrap">{dt(r.createdAt)}</div>
+                <div className="text-xs text-gray-500 whitespace-nowrap">
+                  {dt(r.createdAt)}
+                </div>
               </li>
             ))}
           </ul>
