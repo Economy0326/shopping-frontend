@@ -15,6 +15,7 @@ export default function CheckoutPage() {
   const { user } = useAuth();
 
   // CartPage에서 넘어온 선택결제 데이터
+  // items: [{ key, productId, qty, options }], keys: [key, ...] 
   const selectedItemsFromState = location.state?.selectedItems || null;
   const selectedKeysFromState = location.state?.selectedKeys || null;
 
@@ -61,27 +62,24 @@ export default function CheckoutPage() {
     };
   }, []);
 
+  // 결제 총액: (상품가 + 옵션추가금) × 수량
   const total = useMemo(
     () =>
-      payItems.reduce(
-        (sum, it) => sum + (Number(it?.product?.price) || 0) * (it?.qty || 1),
-        0
-      ),
+      payItems.reduce((sum, it) => {
+        const unit =
+          (Number(it?.product?.price) || 0) +
+          (Number(it?.options?.priceDelta) || 0);
+        return sum + unit * (it?.qty || 1);
+      }, 0),
     [payItems]
   );
 
   const requiredFilled = (...keys) =>
+    // every: 필수 항목 모두 값이 채워져 있는지 확인
     keys.every((k) => String(form[k] ?? "").trim().length > 0);
-
-  // variantId 없으면 결제 불가 (운영 안정성)
-  const hasAllVariantIds = useMemo(() => {
-    if (!payItems.length) return false;
-    return payItems.every((it) => Boolean(it?.options?.variantId));
-  }, [payItems]);
 
   const canSubmit =
     payItems.length > 0 &&
-    hasAllVariantIds &&
     requiredFilled("name", "phone", "zipcode", "address1", "address2", "depositor") &&
     !!agree;
 
@@ -126,29 +124,38 @@ export default function CheckoutPage() {
     }
 
     if (!canSubmit) {
-      if (!hasAllVariantIds) {
-        alert("옵션/재고 정보(variant)가 누락된 상품이 있습니다. 장바구니에서 다시 담아주세요.");
-        return;
-      }
       alert("필수 항목을 확인해주세요.");
       return;
     }
 
-    /**
-     * Variant 기준 주문 payload
-     * items: [{ productId, qty, variantId }]
-     */
+    // items, receiver, payment
     const payload = {
+      // optionId/variantId는 백엔드 내부에서 매칭 책임지므로 옵션 정보만 넘기면 됨
       items: payItems.map((it) => {
         const base = {
           productId: Number(it?.product?.id),
           qty: Number(it?.qty || 1),
         };
 
-        // variantId 우선, 없으면 optionIds로 시도
-        if (it?.options?.variantId) base.variantId = Number(it.options.variantId);
-        else if (Array.isArray(it?.options?.optionIds) && it.options.optionIds.length)
-          base.optionIds = it.options.optionIds.map((v) => Number(v));
+        const rawOv = 
+          it?.options?.optionValues && typeof it.options.optionValues === "object"
+            ? it.options.optionValues
+            : null;
+
+        // optionValues 정리 (값 trim + 빈값 제거)
+        if (rawOv && Object.keys(rawOv).length) {
+          const cleaned = Object.keys(rawOv)
+            .sort()
+            .reduce((acc, k) => {
+              const v = String(rawOv[k] ?? "").trim();
+              if (v) acc[k] = v;
+              return acc;
+            }, {});
+            
+          if (Object.keys(cleaned).length) {
+            base.options = cleaned;
+          }
+        }
 
         return base;
       }),
@@ -172,10 +179,9 @@ export default function CheckoutPage() {
 
     try {
       const res = await OrdersAPI.checkout(payload);
-
       const newId = res?.data?.id ?? res?.id ?? res;
 
-      // 선택결제면 선택 항목만 제거, 아니면 전체 clear
+      // 결제 성공 후 장바구니 정리
       if (isSelectedCheckout) {
         removeItems(selectedKeysFromState);
       } else {
@@ -195,16 +201,14 @@ export default function CheckoutPage() {
       <section className="border rounded p-4">
         <h2 className="font-bold mb-2">주문 상품</h2>
 
-        {!hasAllVariantIds && payItems.length > 0 && (
-          <p className="text-sm text-rose-600 mb-2">
-            일부 상품에 variantId가 없습니다. 장바구니에서 다시 담아주세요.
-          </p>
-        )}
-
         <ul className="space-y-2">
           {payItems.map((it) => {
             const p = it.product || {};
             const qty = it.qty || 1;
+
+            // 라인 단가(상품가 + 옵션추가금)
+            const unit =
+              (Number(p.price) || 0) + (Number(it?.options?.priceDelta) || 0);
 
             return (
               <li key={it.key} className="flex justify-between text-sm">
@@ -213,7 +217,7 @@ export default function CheckoutPage() {
                   {" × "}
                   {qty}
                 </span>
-                <span>{(Number(p.price) || 0).toLocaleString()}원</span>
+                <span>{unit.toLocaleString()}원</span>
               </li>
             );
           })}
@@ -270,12 +274,7 @@ export default function CheckoutPage() {
         <div className="grid gap-2">
           <label className="text-sm font-semibold">주소</label>
           <div className="flex gap-2">
-            <input
-              className="border rounded p-2 flex-1"
-              value={form.zipcode}
-              readOnly
-              placeholder="우편번호"
-            />
+            <input className="border rounded p-2 flex-1" value={form.zipcode} readOnly placeholder="우편번호" />
             <button type="button" onClick={openPostcode} className="border rounded px-3">
               주소검색
             </button>

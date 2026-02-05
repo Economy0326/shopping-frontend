@@ -1,20 +1,20 @@
 import { request } from "shared/api/request";
-import { NOTICES } from "shared/api/endpoints";
+import { ADMIN } from "shared/api/endpoints";
 
 export const AdminNoticesAPI = {
   list(params = {}) {
-    return request(NOTICES.ROOT, { params });
+    return request(ADMIN.NOTICES.ROOT, { params });
   },
   get(id) {
-    return request(NOTICES.BY_ID(id));
+    return request(ADMIN.NOTICES.ID(id));
   },
   create(body) {
-    return request(NOTICES.ROOT, { method: "POST", body });
+    return request(ADMIN.NOTICES.ROOT, { method: "POST", body });
   },
   update(id, body) {
-    return request(NOTICES.BY_ID(id), { method: "PUT", body });
+    return request(ADMIN.NOTICES.ID(id), { method: "PUT", body });
   },
   remove(id) {
-    return request(NOTICES.BY_ID(id), { method: "DELETE" });
+    return request(ADMIN.NOTICES.ID(id), { method: "DELETE" });
   },
 };

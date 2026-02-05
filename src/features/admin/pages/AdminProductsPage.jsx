@@ -19,7 +19,7 @@ export default function AdminProductsPage() {
 
       const res = await AdminProductsAPI.list({
         ...(q.trim() ? { q: q.trim() } : {}),
-        ...(category ? { category } : {}),
+        ...(category ? { categorySlug: category } : {}),
       });
 
       setRows(res?.data ?? []);
@@ -42,7 +42,8 @@ export default function AdminProductsPage() {
       const okQ = q.trim()
         ? String(p?.name ?? "").toLowerCase().includes(q.trim().toLowerCase())
         : true;
-      const okC = category ? String(p?.category ?? "") === category : true;
+      const rowCategory = String(p?.categorySlug ?? p?.category ?? "");
+      const okC = category ? rowCategory === category : true;
       return okQ && okC;
     });
   }, [rows, q, category]);
@@ -119,7 +120,7 @@ export default function AdminProductsPage() {
               <tr key={p.id}>
                 <td className="border p-2 font-mono">{p.id}</td>
                 <td className="border p-2">{p.name}</td>
-                <td className="border p-2">{p.category}</td>
+                <td className="border p-2">{p.categorySlug ?? p.category}</td>
                 <td className="border p-2 text-right">
                   {(Number(p.price) || 0).toLocaleString()}원
                 </td>

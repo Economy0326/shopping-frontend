@@ -40,7 +40,7 @@ export default function AdminProductNew() {
     lookMdUrl: "",
 
     /**
-     *  optionGroups 기반(명세 확정)
+     *  optionGroups 기반
      * - size/color 각 옵션은 { id, value, stock } 형태
      * - id는 프론트가 임시로 만들고(서버가 저장하면서 실제 id를 부여해도 됨)
      */
@@ -63,7 +63,7 @@ export default function AdminProductNew() {
 
   /**
    * 이미지 업로드
-   * - 명세: POST /admin/uploads -> { data: { url: "..." } }
+   * POST /admin/uploads -> { data: { url: "..." } }
    */
   const onUpload = async (files) => {
     if (!files?.length) return;
@@ -151,16 +151,15 @@ export default function AdminProductNew() {
       // 서버로 보낼 payload 구성
       const payload = {
         name: form.name.trim(),
-        category: form.category,
+        categorySlug: form.category,
         price: isLook ? 0 : toNumber(form.price, 0),
-        images: form.images,
+        images: form.images, // url[]
         description: form.description,
 
         sizeGuideMdUrl: form.sizeGuideMdUrl?.trim() || undefined,
         productInfoMdUrl: form.productInfoMdUrl?.trim() || undefined,
         lookMdUrl: isLook ? (form.lookMdUrl?.trim() || undefined) : undefined,
 
-        // optionGroups: _tmpId 제거 + value/stock 정리
         optionGroups: form.optionGroups
           .map((g) => ({
             key: g.key,
@@ -172,7 +171,7 @@ export default function AdminProductNew() {
               }))
               .filter((o) => o.value.length > 0),
           }))
-          // 룩북은 기본적으로 옵션 없음(원하면 남겨도 됨)
+          // 룩북은 기본적으로 옵션 없음
           .filter((g) => !isLook && g.options.length > 0),
       };
 

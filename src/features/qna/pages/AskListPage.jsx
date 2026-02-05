@@ -1,92 +1,122 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import AskDrawer from "features/qna/components/AskDrawer";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "features/auth/context/AuthContext";
 import { QnaAPI } from "features/qna/api/qna.api";
-import { getApiErrorMessage } from "shared/api/request";
+import AskDrawer from "features/qna/components/AskDrawer";
 
-export default function AskListPage({ isLoggedIn, currentUserId, currentUserName, isAdmin }) {
+function getApiErrorMessage(e) {
+  return (
+    (e &&
+      e.response &&
+      e.response.data &&
+      (e.response.data.message ||
+        (e.response.data.error && e.response.data.error.message))) ||
+    (e && e.message) ||
+    "요청 중 오류가 발생했습니다."
+  );
+}
+
+function unwrapList(res) {
+  const payload = res && res.data;
+  return payload && payload.data ? payload.data : payload;
+}
+
+export default function AskListPage() {
   const nav = useNavigate();
-  const { id: routeId } = useParams();
+  const { user, ready } = useAuth();
 
-  const [items, setItems] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const isAdmin = useMemo(
+    () => String(user?.role ?? "").toLowerCase() === "admin",
+    [user?.role]
+  );
+
+  const title = useMemo(() => (isAdmin ? "운영자 문의" : "내 문의"), [isAdmin]);
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-
-  useEffect(() => {
-    setSelectedId(routeId || null);
-  }, [routeId]);
+  const [items, setItems] = useState([]);
+  const [openId, setOpenId] = useState(null);
 
   const refresh = async () => {
-    if (!isLoggedIn) return;
     try {
       setLoading(true);
       setErr("");
-      const res = await QnaAPI.list({ page: 1, size: 50, sort: "createdAt,desc" });
-      const rows = res?.data ?? [];
-      setItems(rows);
+
+      const res = await QnaAPI.list({ page: 1, size: 50 });
+      const list = unwrapList(res);
+      setItems(Array.isArray(list) ? list : []);
     } catch (e) {
-      setErr(getApiErrorMessage(e));
+      const status = e && e.response && e.response.status;
+      if (status === 401) setErr("로그인이 필요합니다.");
+      else setErr(getApiErrorMessage(e));
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeAsk = async (id) => {
+    if (!id) return;
+    if (!window.confirm("이 문의를 삭제할까요?")) return;
+
+    try {
+      setLoading(true);
+      await QnaAPI.remove(id);
+
+      if (String(openId) === String(id)) setOpenId(null);
+      await refresh();
+    } catch (e) {
+      const status = e && e.response && e.response.status;
+      if (status === 401) alert("로그인이 필요합니다.");
+      else if (status === 403) alert("삭제 권한이 없습니다.");
+      else alert(getApiErrorMessage(e));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // 새로고침은 기본적으로 로그인된 경우에만 동작
-    // 단, routeId(직접 링크로 접근) 가 있으면 목록이 없어도 상세를 로드하도록 시도해야 함
-    if (!isLoggedIn && !routeId) return;
+    if (!ready) return; // auth 준비 전에는 호출하지 않음
+    if (!user) return;
     refresh();
-    // eslint-disable-next-line
-  }, [isLoggedIn, routeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, user?.id, isAdmin]);
 
-  const selected = useMemo(() => {
-    if (!selectedId) return null;
-    const found = items.find((i) => String(i.id) === String(selectedId));
-    // 목록에 없을 때는 최소한 id만 가진 stub를 전달해서 AskDrawer가 서버에서 상세를 로드하게 허용
-    return found || { id: selectedId };
-  }, [selectedId, items]);
+  // return은 Hooks 선언 이후에만
+  if (!ready) return null;
 
-  const open = (id) => nav(`/qna/ask/${id}`);
-  const close = () => nav(`/qna?tab=ask`);
-
-  const canWrite = isLoggedIn && items.length < 3;
-
-  if (!isLoggedIn && !routeId) {
+  if (!user) {
     return (
-      <section className="py-10 text-center">
-        <h2 className="text-xl font-bold mb-3">무.물.보</h2>
-        <p className="text-sm text-gray-600">로그인 후 이용할 수 있습니다.</p>
-      </section>
+      <div style={{ padding: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800 }}>문의</h1>
+        <div style={{ marginTop: 12, color: "#666" }}>로그인이 필요합니다.</div>
+      </div>
     );
   }
 
   return (
-    <section className="py-6 grid gap-6">
-      <div className="flex items-center justify-between">
+    <div style={{ padding: 24 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
         <div>
-          <h2 className="text-2xl font-extrabold">무.물.보</h2>
-          <p className="text-sm text-gray-500 mt-1">내 문의 {items.length}/3</p>
+          <h1 style={{ fontSize: 28, fontWeight: 800 }}>{title}</h1>
+          <div style={{ color: "#666", marginTop: 4 }}>
+            {isAdmin ? `전체 ${items.length}건` : `내 문의 ${items.length}/3`}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="text-sm px-3 py-1 border rounded" onClick={refresh} disabled={loading}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={refresh} disabled={loading}>
             새로고침
           </button>
 
-          {canWrite ? (
-            <Link
-              to="/qna/ask/write"
-              className="text-sm px-3 py-1 border rounded bg-black text-white shadow"
-            >
-              글쓰기
-            </Link>
-          ) : (
+          {!isAdmin && (
             <button
-              type="button"
-              className="text-sm px-3 py-1 border rounded bg-gray-100 text-gray-500 cursor-not-allowed"
-              onClick={() => alert("문의는 최대 3개까지 등록할 수 있습니다.")}
+              onClick={() => {
+                if (items.length >= 3)
+                  return alert("문의는 최대 3개까지 등록 가능합니다. 기존 문의를 삭제하세요.");
+                nav("/qna/ask/write");
+              }}
+              disabled={loading}
             >
               글쓰기
             </button>
@@ -94,72 +124,70 @@ export default function AskListPage({ isLoggedIn, currentUserId, currentUserName
         </div>
       </div>
 
-      {err && <div className="text-sm text-red-500">{err}</div>}
-      {loading && items.length === 0 && <div className="text-sm text-gray-500">불러오는 중…</div>}
+      {loading && <div style={{ marginTop: 16 }}>불러오는 중…</div>}
+      {!loading && err && <div style={{ marginTop: 16, color: "#c00" }}>{err}</div>}
 
-      <div className="grid gap-3">
-        {items.length === 0 && !loading && (
-          <div className="p-6 text-center text-sm text-gray-500">등록된 글이 없습니다.</div>
-        )}
-
-        {items.map((i) => {
-          const answered = i.status === "answered" || i.status === "ANSWERED";
-          const active = String(selectedId) === String(i.id);
-
-          return (
-            <article
-              key={i.id}
-              className={`p-4 rounded-lg shadow-sm bg-white hover:shadow-md transition ${
-                active ? "ring-2 ring-red-200" : ""
-              }`}
+      {!loading && !err && (
+        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+          {items.map((it) => (
+            <div
+              key={it.id}
+              style={{
+                border: "1px solid #eee",
+                borderRadius: 10,
+                padding: 14,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+              }}
             >
-              <button
-                type="button"
-                onClick={() => open(i.id)}
-                aria-pressed={active}
-                className="w-full text-left"
+              <div
+                onClick={() => setOpenId(it.id)}
+                style={{ cursor: "pointer", display: "flex", gap: 10, flex: 1 }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-xs text-gray-500">문의</span>
-                      <h3 className="truncate font-semibold text-lg" title={i.title || ""}>
-                        {i.title || "(제목 없음)"}
-                      </h3>
-                    </div>
+                <div style={{ color: "#666" }}>문의</div>
+                <div style={{ fontWeight: 700 }}>{it.title}</div>
+              </div>
 
-                    <p className="text-sm text-gray-600 line-clamp-2">{i.body}</p>
-                  </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <span
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: it.status === "answered" ? "#d1fae5" : "#e5e7eb",
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {it.status === "answered" ? "답변완료" : "대기중"}
+                </span>
 
-                  <div className="flex flex-col items-end gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        answered ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {answered ? "답변완료" : "대기"}
-                    </span>
-                    <time className="text-xs text-gray-400 whitespace-nowrap">
-                      {i.createdAt ? new Date(i.createdAt).toLocaleDateString() : "-"}
-                    </time>
-                  </div>
-                </div>
-              </button>
-            </article>
-          );
-        })}
-      </div>
+                <button
+                  onClick={() => removeAsk(it.id)}
+                  disabled={loading}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          ))}
 
-      {selected && (
-        <AskDrawer
-          ask={selected}
-          onClose={close}
-          onUpdated={refresh}
-          isAdmin={isAdmin}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-        />
+          {items.length === 0 && (
+            <div style={{ marginTop: 20, color: "#666" }}>등록된 글이 없습니다.</div>
+          )}
+        </div>
       )}
-    </section>
+
+      <AskDrawer askId={openId} isAdmin={isAdmin} onClose={() => setOpenId(null)} onChanged={refresh} />
+    </div>
   );
 }

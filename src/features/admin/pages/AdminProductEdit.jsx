@@ -52,14 +52,14 @@ export default function AdminProductEdit() {
 
         setForm({
           name: data.name || "",
-          category: data.category || "outer",
+          category: data.categorySlug || "outer",
           price: data.price != null ? String(data.price) : "",
           images: data.images || [],
           description: data.description || "",
           sizeGuideMdUrl: data.sizeGuideMdUrl || "",
           productInfoMdUrl: data.productInfoMdUrl || "",
           lookMdUrl: data.lookMdUrl || "",
-          optionGroups,
+          optionGroups: data.optionGroups || [],
         });
       } catch (e) {
         setErr(getApiErrorMessage(e, "상품 로드 실패"));
@@ -144,9 +144,9 @@ export default function AdminProductEdit() {
 
       const payload = {
         name: form.name.trim(),
-        category: form.category,
+        categorySlug: form.category,
         price: priceDisabled ? 0 : toNumber(form.price, 0),
-        images: form.images,
+        images: form.images, // url[]
         description: form.description,
         sizeGuideMdUrl: form.sizeGuideMdUrl?.trim() || undefined,
         productInfoMdUrl: form.productInfoMdUrl?.trim() || undefined,

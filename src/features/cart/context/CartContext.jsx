@@ -23,65 +23,53 @@ function save(key, value) {
 }
 
 /**
- *  옵션 표준화(운영버전)
- * - 명세: optionGroups -> 주문은 optionIds(= option.id) 기반
- * - Cart는 프론트 로컬이라서 optionIds를 그대로 저장해두는 게 제일 안정적
- *
- * options shape (권장):
- * {
- *   optionIds: number[]   // 예: [sizeOptionId, colorOptionId]
- * }
+ * optionValues 기반 정규화
+ * - optionValues: { size: "M", color: "black" } 형태
+ * - 빈 값 제거, 키 안정 정렬(라인키 안정성)
+ * - priceDelta: 옵션 조합 추가금(있으면)
  */
 function normalizeOptions(options = {}) {
-  // 과거 호환(혹시 이전 코드가 size/color를 넘기는 경우)
-  const optionIds =
-    Array.isArray(options.optionIds) ? options.optionIds.filter(Boolean) : [];
+  const raw = options?.optionValues && typeof options.optionValues === "object"
+    ? options.optionValues
+    : {};
 
-  // (레거시) sizeId/colorId로 들어오면 optionIds로 합쳐줌
-  const sizeId = options.sizeId ?? options.sizeOptionId ?? null;
-  const colorId = options.colorId ?? options.colorOptionId ?? null;
+  // key 정렬 + 값 trim + 빈값 제거
+  const optionValues = Object.keys(raw)
+    .sort()
+    .reduce((acc, k) => {
+      const v = String(raw[k] ?? "").trim();
+      if (v.length > 0) acc[k] = v;
+      return acc;
+    }, {});
 
-  const merged = [
-    ...optionIds,
-    ...(sizeId ? [sizeId] : []),
-    ...(colorId ? [colorId] : []),
-  ].filter(Boolean);
+  const priceDelta = options.priceDelta != null ? Number(options.priceDelta) : 0;
 
-  // 중복 제거 + 안정 정렬(키 안정성)
-  const uniq = Array.from(new Set(merged)).sort((a, b) => Number(a) - Number(b));
-
-  const optionLabels = Array.isArray(options.optionLabels)
-    ? options.optionLabels.map(String).filter((v) => v.trim().length > 0)
-    : [];
-
-  const variantId =
-    options.variantId != null ? Number(options.variantId) : null;
-  
-    return {
-    ...(uniq.length ? { optionIds: uniq } : {}),
-    ...(optionLabels.length ? { optionLabels } : {}),
-    ...(variantId ? { variantId } : {}),
+  return {
+    ...(Object.keys(optionValues).length ? { optionValues } : {}),
+    ...(priceDelta ? { priceDelta } : {}),
   };
 }
 
+/**
+ *  라인키 생성 (productId + optionValues)
+ * - 예: "12|color=black&size=M"
+ * - optionValues 없으면 productId만
+ */
 function makeLineKey(productId, options = {}) {
   const o = normalizeOptions(options);
-  if (o.variantId) return `${String(productId)}:v:${String(o.variantId)}`;
-  
-  const ids = Array.isArray(o.optionIds) ? o.optionIds : [];
-  // productId:101:201 같은 형태 (옵션 없으면 productId만)
-  return ids.length ? `${String(productId)}:${ids.join(":")}` : String(productId);
+  const ov = o.optionValues || {};
+  const keys = Object.keys(ov).sort();
+
+  if (!keys.length) return String(productId);
+
+  const qs = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(ov[k])}`).join("&");
+  return `${String(productId)}|${qs}`;
 }
 
-/**
- * CartItem shape (FRONT LOCAL)
- * {
- *   key: string,                // productId:optionIds...
- *   product: { id, name, price, images... },
- *   qty: number,
- *   options: { optionIds?: number[] }
- * }
- */
+// 라인 단가 = 상품 가격 + 옵션 조합 추가금(priceDelta)
+const getUnitPrice = (it) =>
+  (Number(it?.product?.price) || 0) + (Number(it?.options?.priceDelta) || 0);
+
 export function CartProvider({ children, username }) {
   const storageKey = username ? `cart_${username}` : "cart_guest";
   const [cart, setCart] = useState([]);
@@ -94,7 +82,12 @@ export function CartProvider({ children, username }) {
     save(storageKey, cart);
   }, [storageKey, cart]);
 
-  // product는 "상품 객체", options는 { optionIds: [] }
+  /**
+   * 상품 담기
+   * - product: 상품 객체
+   * - qty: 수량
+   * - options: { optionValues: {size, color, ...}, priceDelta? }
+   */
   const addToCart = useCallback((product, qty = 1, options = {}) => {
     const productId = product?.id;
     if (productId == null) return;
@@ -117,26 +110,32 @@ export function CartProvider({ children, username }) {
     });
   }, []);
 
+  // 라인 삭제(단일): lineKey로 해당 라인 제거
   const removeFromCart = useCallback((lineKey) => {
     setCart((prev) => prev.filter((it) => it.key !== lineKey));
   }, []);
 
+  // 여러 라인 삭제(선택결제 완료 후 선택 항목만 제거)
   const removeItems = useCallback((keys = []) => {
     const set = new Set(keys.map(String));
     setCart((prev) => prev.filter((it) => !set.has(String(it.key))));
   }, []);
 
+  // 수량 변경(최소 1)
   const changeQty = useCallback((lineKey, qty) => {
     const safe = Math.max(1, Number(qty) || 1);
+    // linekey: productId|k=v&k=v
     setCart((prev) =>
       prev.map((it) => (it.key === lineKey ? { ...it, qty: safe } : it))
     );
   }, []);
 
+  // 장바구니 비우기(전체결제 완료 후)
   const clearCart = useCallback(() => setCart([]), []);
 
   const total = useMemo(
-    () => cart.reduce((sum, it) => sum + (it.qty || 0) * (it.product?.price || 0), 0),
+    // 장바구니 총액: (상품가 + 옵션추가금) × 수량
+    () => cart.reduce((sum, it) => sum + (it.qty || 0) * getUnitPrice(it), 0),
     [cart]
   );
 
@@ -155,7 +154,7 @@ export function CartProvider({ children, username }) {
       clearCart,
       total,
       count,
-      makeLineKey, // (Checkout에서 key 계산 필요하면 사용 가능)
+      makeLineKey,
     }),
     [cart, addToCart, removeFromCart, removeItems, changeQty, clearCart, total, count]
   );

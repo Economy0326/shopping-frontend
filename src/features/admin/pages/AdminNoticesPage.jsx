@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react"; 
 import { AdminNoticesAPI } from "features/admin/api/adminNotices.api";
 import { getApiErrorMessage } from "shared/api/request";
 
@@ -58,7 +58,11 @@ export default function AdminNoticesPage() {
   const [form, setForm] = useState({ title: "", body: "" });
   const [saving, setSaving] = useState(false);
 
+  const reqSeqRef = useRef(0);
+  const debounceRef = useRef(null);
+
   const load = async (p = 1) => {
+    const mySeq = ++reqSeqRef.current;
     try {
       setLoading(true);
       const res = await AdminNoticesAPI.list({
@@ -67,6 +71,9 @@ export default function AdminNoticesPage() {
         ...(q.trim() ? { q: q.trim() } : {}),
         sort: "createdAt,desc",
       });
+
+      // 레이스 방지 - 최신 요청이 아니면 무시
+      if (mySeq !== reqSeqRef.current) return;
 
       const list = res?.data ?? [];
       const m = res?.meta ?? { page: p, size: meta.size || 20, total: 0 };
@@ -83,11 +90,13 @@ export default function AdminNoticesPage() {
         setSelectedId(list[0]?.id ?? null);
       }
     } catch (e) {
+      if (mySeq !== reqSeqRef.current) return;
+
       alert(getApiErrorMessage(e, "공지 목록 로드 실패"));
       setRows([]);
       setSelectedId(null);
     } finally {
-      setLoading(false);
+      if (mySeq === reqSeqRef.current) setLoading(false);
     }
   };
 
@@ -95,6 +104,19 @@ export default function AdminNoticesPage() {
     load(1);
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(() => {
+      load(1);
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line
+  }, [q]);
 
   const totalPages = useMemo(() => {
     const t = Number(meta.total) || 0;
@@ -181,6 +203,7 @@ export default function AdminNoticesPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        {/* ✅ 수정: 버튼은 유지(즉시 load) */}
         <button className="px-3 py-2 border rounded" onClick={() => load(1)}>
           검색
         </button>
@@ -256,7 +279,9 @@ export default function AdminNoticesPage() {
             <p className="text-sm text-gray-500">왼쪽에서 공지를 선택하세요.</p>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs text-gray-500">#{selected.id} · {dt(selected.createdAt)}</div>
+              <div className="text-xs text-gray-500">
+                #{selected.id} · {dt(selected.createdAt)}
+              </div>
               <div className="text-lg font-bold">{selected.title}</div>
               <div className="border rounded-xl p-3 text-sm whitespace-pre-wrap">
                 {previewBody}

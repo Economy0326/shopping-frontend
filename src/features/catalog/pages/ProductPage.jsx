@@ -1,15 +1,14 @@
-// 상품 상세페이지 + 룩북 상세페이지
-import { useState, useEffect } from "react";
+// 상품 상세페이지 + 룩북 상세페이지 (value 기반)
+// optionGroups.value(string) + stock 기반
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
 
 import { useCart } from "features/cart/context/CartContext";
-import { ProductsAPI } from "features/catalog/api/products.api"; // 명세 기준: get/list 통일
+import { ProductsAPI } from "features/catalog/api/products.api";
 import { SystemAPI } from "shared/api/system.api";
-import { pickData } from "shared/api/pickers"; // { data: ... } 껍데기 벗기기
+import { pickData } from "shared/api/pickers";
 import { getApiErrorMessage } from "shared/api/request";
 
-// 정책키는 상수로 고정
-// 운영자가 /system/policies/returns 만 수정하면 전상품에 반영됨
 const RETURNS_POLICY_KEY = "returns";
 
 function TriangleArrow({
@@ -28,29 +27,30 @@ function TriangleArrow({
   );
 }
 
-// variant => 둘 다 선택은 해당 조합 재고로 판단
-// 하나만 선택은 해당 옵션을 포함하는 variant 중 stock>0 있으면 가능
+// optionGroups에서 특정 옵션 value의 stock 찾기
+const getStockOfValue = (group, value) => {
+  const opts = Array.isArray(group?.options) ? group.options : [];
+  const found = opts.find((o) => String(o?.value) === String(value));
+  return Number(found?.stock ?? 0);
+};
+
 export default function ProductPage() {
+  // useParams: 라우터 파라미터에서 상품 ID 가져오기
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
   const [product, setProduct] = useState(null);
 
-  const [qty, setQty] = useState(1); // 구매 수량
-  const [added, setAdded] = useState(false); // 장바구니 담김 표시
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
 
-  /**
-   *  옵션 선택은 value가 아니라 option.id(= optionId)로 저장해야 함
-   * - 명세: 주문 payload는 optionId(option.id) 기반
-   * - value/index 기반 전송 금지
-   */
-  const [selectedSizeId, setSelectedSizeId] = useState(null);
-  const [selectedColorId, setSelectedColorId] = useState(null);
+  // value 기반 선택 상태
+  const [selectedSizeValue, setSelectedSizeValue] = useState("");
+  const [selectedColorValue, setSelectedColorValue] = useState("");
 
   const [error, setError] = useState("");
   const [open, setOpen] = useState({
-    // 아코디언 섹션 열림 상태
     size: false,
     info: false,
     return: false,
@@ -61,19 +61,19 @@ export default function ProductPage() {
   const [returnsMd, setReturnsMd] = useState("교환/환불 안내를 준비 중입니다.");
   const [loadingInfo, setLoadingInfo] = useState(true);
 
-  // 룩북 전용 md 텍스트
+  // 룩북 md
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lookMd, setLookMd] = useState("");
 
-  // 서버 로딩/에러 상태 (운영버전 기본)
+  // 로딩/에러
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
-  // 아코디언 토글 헬퍼
+  // 옵션 섹션 열기/닫기 토글
   const toggle = (k) => setOpen((prev) => ({ ...prev, [k]: !prev[k] }));
 
   useEffect(() => {
-    // alive 플래그: 언마운트 후 setState 방지
+    // alive: 비동기 작업 취소 플래그
     let alive = true;
 
     (async () => {
@@ -81,12 +81,20 @@ export default function ProductPage() {
         setLoading(true);
         setLoadErr("");
 
-        // 명세: GET /products/{id}
         const res = await ProductsAPI.get(id);
         const detail = pickData(res);
 
         if (!detail) throw new Error("상품 데이터가 비어있습니다.");
-        if (alive) setProduct(detail);
+        if (alive) {
+          setProduct(detail);
+
+          // 상품 바뀌면 선택 초기화
+          setSelectedSizeValue("");
+          setSelectedColorValue("");
+          setQty(1);
+          setError("");
+          setCurrentIndex(0);
+        }
       } catch (e) {
         if (alive) {
           setProduct(null);
@@ -102,105 +110,78 @@ export default function ProductPage() {
     };
   }, [id]);
 
-  // product가 null일 때 접근 안전하게 처리
   const images = product?.images ?? [];
   const isLook = product?.categorySlug === "look";
 
-  // 룩북 md URL (명세: lookMdUrl optional)
   const lookMdUrl = product?.lookMdUrl ?? "";
 
   const rawPrice = product?.price;
-  // 룩북 이면 가격 노출 안 함
   const hasPrice = typeof rawPrice === "number" && !isLook;
   const formattedPrice = hasPrice ? rawPrice.toLocaleString() : null;
 
-  /**
-   *  optionGroups 기반 렌더링
-   * - optionGroups: [{ key:'size'|'color', options:[{id,value,stock}] }]
-   */
-  const optionGroups = Array.isArray(product?.optionGroups) ? product.optionGroups : [];
+  // opitionGroups: size, color
+  const optionGroups = Array.isArray(product?.optionGroups)
+    ? product.optionGroups
+    : [];
   const sizeGroup = optionGroups.find((g) => g.key === "size");
   const colorGroup = optionGroups.find((g) => g.key === "color");
 
   const sizeOptions = Array.isArray(sizeGroup?.options) ? sizeGroup.options : [];
   const colorOptions = Array.isArray(colorGroup?.options) ? colorGroup.options : [];
 
-  // Variant 목록 (조합 재고)
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  // 현재 선택 기반 “조합 가능 재고(대략치)” 계산
+  // - 둘 다 선택되면 min(sizeStock, colorStock)
+  // - 하나만 선택되면 해당 옵션 stock
+  // - 최종 재고 검증은 주문 생성 시 백엔드가 수행
+  const selectedAvailableStock = useMemo(() => {
+    if (isLook) return Infinity;
 
-  // optionIds 배열 비교용(정렬 후 문자열 키)
-  const keyOf = (ids = []) =>
-    ids
-      .filter(Boolean)
-      .map((n) => Number(n))
-      .sort((a, b) => a - b)
-      .join(",");
+    const hasSize = sizeOptions.length > 0;
+    const hasColor = colorOptions.length > 0;
 
-  // 현재 선택(또는 후보) optionIds로 variant 찾기
-  const findVariantByOptionIds = (ids = []) => {
-    const k = keyOf(ids);
-    // 우선: variants[].optionIds 대응
-    const byOptionIds = variants.find((v) => keyOf(v?.optionIds || []) === k);
-    if (byOptionIds) return byOptionIds;
+    // selectedSzeValue/selectedColorValue -> value 기반 선택 상태
+    const sizePicked = hasSize ? selectedSizeValue : "";
+    const colorPicked = hasColor ? selectedColorValue : "";
 
-    // 레거시/백엔드 표현: sizeOptionId / colorOptionId 로 제공하는 경우도 고려
-    if (ids.length === 2) {
-      const [a, b] = ids.map((x) => Number(x));
-      const byFields = variants.find((v) => {
-        const s = v?.sizeOptionId ? Number(v.sizeOptionId) : null;
-        const c = v?.colorOptionId ? Number(v.colorOptionId) : null;
-        return (s === a && c === b) || (s === b && c === a);
-      });
-      if (byFields) return byFields;
+    if (hasSize && sizePicked) {
+      const s = getStockOfValue(sizeGroup, sizePicked);
+      if (hasColor && colorPicked) {
+        const c = getStockOfValue(colorGroup, colorPicked);
+        return Math.min(s, c);
+      }
+      return s;
     }
 
-    // 단일 옵션 매칭(예: size만 선택) — variants에 sizeOptionId / colorOptionId 필드 있으면 확인
-    if (ids.length === 1) {
-      const x = Number(ids[0]);
-      const bySingle = variants.find((v) => Number(v.sizeOptionId) === x || Number(v.colorOptionId) === x);
-      if (bySingle) return bySingle;
+    if (hasColor && colorPicked) {
+      const c = getStockOfValue(colorGroup, colorPicked);
+      return c;
     }
 
-    return null;
-  };
-
-  // 현재 선택된 조합 variant
-  const selectedVariant =
-    !isLook && selectedSizeId && selectedColorId
-      ? findVariantByOptionIds([selectedSizeId, selectedColorId])
-      : null;
-
-  // 특정 옵션(버튼)이 "선택 가능"한지 계산
-  // - 둘 다 선택이면 해당 조합 재고로 판단
-  // - 하나만 선택이면 해당 옵션을 포함하는 variant 중 stock>0 있으면 가능
-  const isOptionAvailable = (groupKey, optionId) => {
-    if (isLook) return true;
-
-    const sizeId = groupKey === "size" ? optionId : selectedSizeId;
-    const colorId = groupKey === "color" ? optionId : selectedColorId;
-
-    // 둘 다 있으면 조합 variant 재고
-    if (sizeId && colorId) {
-      const v = findVariantByOptionIds([sizeId, colorId]);
-      return Boolean(v && Number(v.stock) > 0);
-    }
-
-    // 하나만 있으면 partial 포함 variant 중 재고 있는지
-    const partial = [sizeId, colorId].filter(Boolean).map(Number);
-    if (partial.length === 0) return true;
-
-    return variants.some((v) => {
-      const ids = Array.isArray(v?.optionIds) ? v.optionIds : [];
-      const ok = partial.every((x) => ids.includes(x));
-      return ok && Number(v.stock) > 0;
-    });
-  };
+    // 아무것도 선택 안 했으면 제한 없음(버튼 활성화 판단은 validate에서 함)
+    return Infinity;
+  }, [
+    isLook,
+    sizeGroup,
+    colorGroup,
+    sizeOptions.length,
+    colorOptions.length,
+    selectedSizeValue,
+    selectedColorValue,
+  ]);
 
   /**
-   * (공통 정책) 교환/반품/환불 안내
-   * - /system/policies/returns
-   * - 서버가 { key, value } 형태로 준다는 전제 (명세)
+   * 버튼 선택 가능 여부(단일 옵션 기준)
+   * - optionGroups의 stock 기준으로만 판단
+   * - size 버튼: sizeOption.stock > 0 이면 가능
+   * - color 버튼: colorOption.stock > 0 이면 가능
    */
+  const isOptionAvailable = (groupKey, value) => {
+    if (isLook) return true;
+    const group = groupKey === "size" ? sizeGroup : colorGroup;
+    const stock = getStockOfValue(group, value);
+    return stock > 0;
+  };
+
   useEffect(() => {
     let alive = true;
 
@@ -221,12 +202,6 @@ export default function ProductPage() {
     };
   }, [id]);
 
-  /**
-   * 상품별 상세/사이즈 안내
-   * - URL 방식: sizeGuideMdUrl / productInfoMdUrl
-   * - Text 방식: sizeGuideText / productInfoText
-   * - fallback 우선순위: URL fetch -> Text -> description -> 미노출
-   */
   useEffect(() => {
     let alive = true;
 
@@ -247,7 +222,6 @@ export default function ProductPage() {
       const sizeMdUrl = product?.sizeGuideMdUrl ?? "";
       const infoMdUrl = product?.productInfoMdUrl ?? "";
 
-      // 서버가 텍스트만 주는 경우 fallback
       const sizeTextFallback = product?.sizeGuideText ?? "";
       const infoTextFallback = product?.productInfoText ?? product?.description ?? "";
 
@@ -268,7 +242,6 @@ export default function ProductPage() {
     };
   }, [id, product]);
 
-  //룩북 md는 서버가 lookMdUrl(URL)을 주면 fetch
   useEffect(() => {
     let alive = true;
 
@@ -312,80 +285,53 @@ export default function ProductPage() {
     );
   }
 
+  // 선택 검증 함수 (장바구니 담기/바로구매 전에 호출)
   const validateSelection = () => {
     if (isLook) return true;
 
-    const needsSize = Array.isArray(sizeOptions) && sizeOptions.length > 0;
-    const needsColor = Array.isArray(colorOptions) && colorOptions.length > 0;
+    const needsSize = sizeOptions.length > 0;
+    const needsColor = colorOptions.length > 0;
 
-    if ((needsSize && !selectedSizeId) || (needsColor && !selectedColorId)) {
+    if ((needsSize && !selectedSizeValue) || (needsColor && !selectedColorValue)) {
       setError("색상과 사이즈를 선택해주세요.");
       return false;
     }
 
-    // 선택 조합이 실제 variant로 존재하는지 + 재고 확인
-    const v = findVariantByOptionIds([selectedSizeId, selectedColorId]);
-    if (!v) {
-      setError("선택한 옵션 조합을 찾을 수 없습니다.");
+    if (Number(selectedAvailableStock) <= 0) {
+      setError("해당 옵션은 품절이거나 재고가 부족합니다.");
       return false;
     }
-    if (Number(v.stock) <= 0) {
-      setError("해당 옵션은 품절입니다.");
+
+    if (qty > Number(selectedAvailableStock)) {
+      setError(`재고가 부족합니다. (최대 ${Number(selectedAvailableStock)}개)`);
       return false;
     }
 
     return true;
   };
 
-  // 장바구니에 현재 상품 추가
+  // 장바구니 담기 (optionValues 기반)
   const addCurrentToCart = () => {
     if (!validateSelection()) return false;
 
-    // Cart에는 optionIds를 저장(주문 payload와 동일한 “id 기반”)
-    const optionIds = [
-      ...(selectedSizeId ? [Number(selectedSizeId)] : []),
-      ...(selectedColorId ? [Number(selectedColorId)] : []),
-    ].filter(Boolean);
+    const optionValues = {};
+    if (sizeOptions.length > 0 && selectedSizeValue) optionValues.size = selectedSizeValue;
+    if (colorOptions.length > 0 && selectedColorValue) optionValues.color = selectedColorValue;
 
-    const optionLabels = [
-      ...(selectedSizeId
-        ? [
-            `SIZE:${String(
-              sizeOptions.find((o) => String(o.id) === String(selectedSizeId))?.value ?? ""
-            )}`,
-          ]
-        : []),
-      ...(selectedColorId
-        ? [
-            `COLOR:${String(
-              colorOptions.find((o) => String(o.id) === String(selectedColorId))?.value ?? ""
-            )}`,
-          ]
-        : []),
-    ].filter((s) => s && !s.endsWith(":"));
+    // priceDelta: 옵션 조합 추가금이 없으면 0
+    // (추가금 정책이 생기면 여기서 계산해서 넣으면 Cart/Checkout 총액이 자동 반영됨)
+    const priceDelta = 0;
 
-    // variantid 계산
-    const v = findVariantByOptionIds(optionIds);
-
-    addToCart(
-      product,
-      Math.max(1, qty),
-      optionIds.length
-        ? { optionIds, optionLabels, variantId: v?.id }
-        : {}
-    );
-    
+    addToCart(product, Math.max(1, qty), { optionValues, priceDelta });
     return true;
   };
 
-  // 바로 구매 처리
   const handleBuyNow = () => {
     setError("");
     if (!addCurrentToCart()) return;
     navigate("/cart");
   };
 
-  // 장바구니에 담기 처리
   const handleAddOnly = () => {
     setError("");
     if (!addCurrentToCart()) return;
@@ -395,13 +341,14 @@ export default function ProductPage() {
 
   const categories = ["all", "outer", "top", "bottom", "acc", "for-artist"];
 
-  // 버튼 비활성 조건
+  // 버튼 비활성(옵션 미선택 or 품절 or 재고보다 qty 큼)
   const buyDisabled =
-    (!isLook && sizeOptions.length > 0 && !selectedSizeId) ||
-    (!isLook && colorOptions.length > 0 && !selectedColorId) ||
-    (!isLook && selectedVariant && Number(selectedVariant.stock) <= 0);
-  
-    return (
+    (!isLook && sizeOptions.length > 0 && !selectedSizeValue) ||
+    (!isLook && colorOptions.length > 0 && !selectedColorValue) ||
+    (!isLook && Number(selectedAvailableStock) <= 0) ||
+    (!isLook && qty > Number(selectedAvailableStock));
+
+  return (
     <>
       {/* 카테고리/탭 */}
       <header>
@@ -455,9 +402,7 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={() =>
-                  setCurrentIndex(
-                    (i) => (i - 1 + images.length) % images.length
-                  )
+                  setCurrentIndex((i) => (i - 1 + images.length) % images.length)
                 }
                 className="group absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 z-20 w-12 h-[16%] min-h-12 flex items-center justify-center"
                 aria-label="이전 이미지"
@@ -470,7 +415,7 @@ export default function ProductPage() {
             )}
 
             <img
-              src={images[currentIndex]?.url}
+              src={images[currentIndex]?.url ?? images[currentIndex]}
               alt={`${product?.name || "product"} ${currentIndex + 1}`}
               className="w-full h-auto object-cover rounded-2xl"
             />
@@ -506,23 +451,23 @@ export default function ProductPage() {
 
           {!isLook && (
             <>
-              {/* 사이즈/색상(optionGroups) */}
+              {/* 사이즈/색상(value+stock) */}
               <div className="grid gap-6">
-                {/* 옵션이 없으면 UI 자체를 숨김 */}
                 {sizeOptions.length > 0 && (
                   <div role="radiogroup" className="flex flex-wrap gap-1">
                     {sizeOptions.map((opt) => {
-                      const isSelected = String(selectedSizeId) === String(opt.id);
-                      const soldOut = !isOptionAvailable("size", opt.id);
+                      const val = String(opt?.value ?? "");
+                      const isSelected = selectedSizeValue === val;
+                      const soldOut = !isOptionAvailable("size", val);
 
                       return (
                         <button
-                          key={opt.id}
+                          key={`size-${val}`}
                           type="button"
                           role="radio"
                           aria-checked={isSelected}
-                          aria-label={`사이즈 ${opt.value}`}
-                          onClick={() => setSelectedSizeId(opt.id)}
+                          aria-label={`사이즈 ${val}`}
+                          onClick={() => setSelectedSizeValue(val)}
                           disabled={soldOut}
                           className={[
                             "w-9 h-9 rounded-md border-2 flex items-center justify-center font-bold transition-colors select-none text-sm outline-none ring-0",
@@ -533,9 +478,9 @@ export default function ProductPage() {
                               ? "bg-red-500 text-white"
                               : "bg-white text-red-600",
                           ].join(" ")}
-                          title={soldOut ? "품절" : String(opt.value)}
+                          title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
                         >
-                          {String(opt.value)}
+                          {val}
                         </button>
                       );
                     })}
@@ -545,27 +490,26 @@ export default function ProductPage() {
                 {colorOptions.length > 0 && (
                   <div role="radiogroup" className="flex flex-wrap gap-1">
                     {colorOptions.map((opt) => {
-                      const isSelected = String(selectedColorId) === String(opt.id);
-                      const soldOut = !isOptionAvailable("color", opt.id);
+                      const val = String(opt?.value ?? "");
+                      const isSelected = selectedColorValue === val;
+                      const soldOut = !isOptionAvailable("color", val);
 
-                      // UI용 배경 처리(값이 black/white면 색상칩)
-                      const color = String(opt.value ?? "");
                       const bgClass =
-                        ["white", "black"].includes(color.toLowerCase())
-                          ? color.toLowerCase() === "white"
+                        ["white", "black"].includes(val.toLowerCase())
+                          ? val.toLowerCase() === "white"
                             ? "bg-white"
                             : "bg-black"
                           : "";
-                      const inlineStyle = bgClass ? undefined : { backgroundColor: color };
+                      const inlineStyle = bgClass ? undefined : { backgroundColor: val };
 
                       return (
                         <button
-                          key={opt.id}
+                          key={`color-${val}`}
                           type="button"
                           role="radio"
                           aria-checked={isSelected}
-                          aria-label={`색상 ${color}`}
-                          onClick={() => setSelectedColorId(opt.id)}
+                          aria-label={`색상 ${val}`}
+                          onClick={() => setSelectedColorValue(val)}
                           disabled={soldOut}
                           className={[
                             "w-9 h-9 rounded-md border-2 flex items-center justify-center transition select-none outline-none ring-0",
@@ -574,7 +518,7 @@ export default function ProductPage() {
                             soldOut ? "opacity-30 cursor-not-allowed" : "",
                           ].join(" ")}
                           style={inlineStyle}
-                          title={soldOut ? "품절" : color}
+                          title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
                         >
                           {isSelected && !soldOut && (
                             <span className="w-3 h-3 rounded-full bg-red-500" />
@@ -618,9 +562,9 @@ export default function ProductPage() {
                     onChange={(e) =>
                       setQty(Math.max(1, Number(e.target.value) || 1))
                     }
-                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none 
-                              [&::-webkit-inner-spin-button]:appearance-none 
-                              [&::-webkit-outer-spin-button]:appearance-none 
+                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
+                              [&::-webkit-inner-spin-button]:appearance-none
+                              [&::-webkit-outer-spin-button]:appearance-none
                               [-moz-appearance:textfield]"
                   />
                   <button
@@ -668,32 +612,30 @@ export default function ProductPage() {
                   { key: "size", title: "SIZE GUIDE", content: sizeGuideMd },
                   { key: "info", title: "PRODUCT INFO", content: productInfoMd },
                   { key: "return", title: "RETURN/EXCHANGE", content: returnsMd },
-                ]
-                  // 전부 비어있으면 섹션 자체를 숨기고 싶으면 여기서 filter 가능
-                  .map(({ key, title, content }) => (
-                    <div key={key}>
-                      <button
-                        onClick={() => toggle(key)}
-                        aria-expanded={open[key]}
-                        aria-controls={`sec-${key}`}
-                        className="relative w-full flex justify-start font-bold py-2"
+                ].map(({ key, title, content }) => (
+                  <div key={key}>
+                    <button
+                      onClick={() => toggle(key)}
+                      aria-expanded={open[key]}
+                      aria-controls={`sec-${key}`}
+                      className="relative w-full flex justify-start font-bold py-2"
+                    >
+                      <span className="pr-10">{title}</span>
+                      <span
+                        className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
+                          open[key] ? "rotate-180" : ""
+                        }`}
                       >
-                        <span className="pr-10">{title}</span>
-                        <span
-                          className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
-                            open[key] ? "rotate-180" : ""
-                          }`}
-                        >
-                          ▼
-                        </span>
-                      </button>
-                      {open[key] && (
-                        <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
-                          {loadingInfo ? "로딩 중…" : (content || "준비 중입니다.")}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        ▼
+                      </span>
+                    </button>
+                    {open[key] && (
+                      <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
+                        {loadingInfo ? "로딩 중…" : (content || "준비 중입니다.")}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

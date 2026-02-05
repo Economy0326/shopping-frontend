@@ -71,4 +71,8 @@ export const ADMIN = {
     APPROVE: (id) => `/admin/returns/${id}/approve`,
     REJECT: (id) => `/admin/returns/${id}/reject`,
   },
+  NOTICES: {
+    ROOT: `/admin/notices`,
+    ID: (id) => `/admin/notices/${id}`,
+  }
 };

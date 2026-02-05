@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import { AuthAPI } from "features/auth/api/auth.api";
+import UsersAPI from "features/users/api/users.api";
 import { clearToken, setAccessToken, getAccessToken } from "shared/api/tokenMemory";
 import { authEvents } from "shared/api/authEvents";
 import { pickData } from "shared/api/pickers";
@@ -40,6 +41,12 @@ export function AuthProvider({ children }) {
     return off;
   }, []);
 
+  // 유저 정보는 /user/me로 확정(프로필 필드 유지 목적)
+  async function loadFullMe({ silentAuth = true } = {}) {
+    const me = await UsersAPI.me({ silentAuth }).catch(() => null);
+    return me ?? null;
+  }
+
   // 앱 시작 시: accessToken 없으면 /auth/refresh 를 silent로 1회 시도하고,
   // 이후 /auth/me 를 호출해 사용자 정보를 가져온다.
   useEffect(() => {
@@ -61,8 +68,8 @@ export function AuthProvider({ children }) {
         }
 
         // 사용자 정보 조회
-        const res = await AuthAPI.me({ silentAuth: true });
-        const me = pickData(res);
+        const me = await loadFullMe({ silentAuth: true });
+
         if (alive && me) {
           setUser(me);
           setAuthRequired(false);
@@ -99,8 +106,7 @@ export function AuthProvider({ children }) {
       setAccessToken(payload.accessToken);
 
       // 로그인 직후 me로 최신 사용자 확정
-      const meRes = await AuthAPI.me({silentAuth:true});
-      const me = pickData(meRes);
+      const me = await UsersAPI.me({ silentAuth: true });
       setUser(me);
 
       markLoggedOut(false);

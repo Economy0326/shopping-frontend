@@ -51,6 +51,8 @@ import PasswordResetRequestPage from "features/auth/pages/PasswordResetRequestPa
 // Legal pages
 import PrivacyPage from "features/legal/pages/PrivacyPage";
 import TermsPage from "features/legal/pages/TermsPage";
+import RefundPage from "features/legal/pages/RefundPage";
+import ShippingPage from "features/legal/pages/ShippingPage";
 
 function NoLogoLayout() {
   return (
@@ -111,6 +113,8 @@ export default function AppRoutes() {
         {/* legal */}
         <Route path="legal/privacy" element={<PrivacyPage />} />
         <Route path="legal/terms" element={<TermsPage />} />
+        <Route path="legal/refund" element={<RefundPage />} />
+        <Route path="legal/shipping" element={<ShippingPage />} />
 
         {/* admin */}
         <Route

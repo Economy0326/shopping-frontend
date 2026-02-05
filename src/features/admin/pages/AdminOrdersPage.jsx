@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react"; 
 import { Link } from "react-router-dom";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
@@ -32,7 +32,11 @@ export default function AdminOrdersPage() {
   const [onlyExpired, setOnlyExpired] = useState(false);
   const [q, setQ] = useState(""); // 주문ID/이메일 검색
 
+  const reqSeqRef = useRef(0); // 레이스 방지 seq
+  const debounceRef = useRef(null); // debounce timer
+
   const load = async (page = 1) => {
+    const mySeq = ++reqSeqRef.current;
     try {
       setLoading(true);
 
@@ -48,6 +52,9 @@ export default function AdminOrdersPage() {
 
       const res = await request(ADMIN.ORDERS.ROOT, { params });
 
+      // 레이스 방지 - 최신 요청이 아니면 무시
+      if (mySeq !== reqSeqRef.current) return;
+
       const rows = res?.data ?? [];
       const m = res?.meta ?? { page, size: meta.size, total: 0 };
 
@@ -59,9 +66,11 @@ export default function AdminOrdersPage() {
       setList(filtered);
       setMeta(m);
     } catch (e) {
+      // 레이스 방지 - 최신 요청이 아니면 경고/상태변경도 하지 않음
+      if (mySeq !== reqSeqRef.current) return;
       alert(getApiErrorMessage(e, "주문 목록 로드 실패"));
     } finally {
-      setLoading(false);
+      if (mySeq === reqSeqRef.current) setLoading(false);
     }
   };
 
@@ -70,11 +79,17 @@ export default function AdminOrdersPage() {
     // eslint-disable-next-line
   }, []);
 
-  // 필터 변경 시 1페이지부터 재조회
   useEffect(() => {
-    load(1);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      load(1);
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
     // eslint-disable-next-line
-  }, [status, onlyExpired]);
+  }, [status, onlyExpired, q]);
 
   const hasNext = useMemo(
     () => (meta.page || 1) * (meta.size || 20) < (meta.total || 0),

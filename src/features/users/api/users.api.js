@@ -4,8 +4,8 @@ import { idemHeaders } from "shared/utils/idempotency";
 import { pickData } from "shared/api/pickers";
 
 export const UsersAPI = {
-  async me() {
-    return pickData(await request(USERS.ME));
+  async me({ silentAuth = false } = {}) {
+    return pickData(await request(USERS.ME, { silentAuth }));
   },
 
   // 프로필 수정

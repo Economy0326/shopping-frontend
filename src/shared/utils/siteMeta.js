@@ -9,10 +9,10 @@ const siteMeta = {
     { bank: "하나", accountNo: "010-515618-01907", holder: "노 띵킹 에어리어" }
   ],
   links: {
-    terms: "/terms",
-    privacy: "/privacy",
-    refund: "/refund-policy",
-    shipping: "/shipping-policy"
+    terms: "/legal/terms",
+    privacy: "/legal/privacy",
+    refund: "/legal/refund",
+    shipping: "/legal/shipping"
   },
 };
 export default siteMeta;
