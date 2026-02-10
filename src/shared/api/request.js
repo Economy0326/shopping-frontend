@@ -35,3 +35,56 @@ export function getApiErrorMessage(err, fallback = "요청 실패") {
 
   return apiMsg || legacyMsg || fallback;
 }
+
+export function getApiErrorBody(err) {
+  // { error: { code, message, details } }
+  const e = err?.response?.data?.error;
+  if (e && typeof e === "object") {
+    return {
+      code: String(e.code || ""),
+      message: String(e.message || ""),
+      details: e.details ?? {},
+      status: err?.response?.status,
+    };
+  }
+  return null;
+}
+
+// Checkout/Cart에서 바로 쓸 UX 변환기
+export function mapCheckoutErrorToUx(code, message, details) {
+  switch (code) {
+    case "AUTH_REQUIRED":
+    case "INVALID_TOKEN":
+    case "AUTH_REFRESH_INVALID":
+    case "AUTH_REFRESH_MISSING":
+      return {
+        title: "로그인이 필요합니다",
+        message: "주문을 진행하려면 로그인해야 해요.",
+        action: { type: "go_login", label: "로그인" },
+      };
+
+    case "OUT_OF_STOCK":
+      return {
+        title: "재고가 부족합니다",
+        message:
+          message || "선택한 옵션의 재고가 부족해 주문을 생성할 수 없어요.\n장바구니에서 수량을 줄이거나 다른 옵션을 선택해주세요.",
+        action: { type: "go_cart", label: "장바구니로" },
+      };
+
+    case "VALIDATION_ERROR":
+      return {
+        title: "입력값이 올바르지 않습니다",
+        message: "필수 항목/형식을 다시 확인해주세요.",
+        // details.errors 가 배열일 수 있음 (너 필터에서 그렇게 내려줌)
+        fieldErrors: Array.isArray(details?.errors) ? details.errors : [],
+        action: { type: "close", label: "확인" },
+      };
+
+    default:
+      return {
+        title: "주문 생성 실패",
+        message: message || "요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        action: { type: "retry", label: "다시 시도" },
+      };
+  }
+}

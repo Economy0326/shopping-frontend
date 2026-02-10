@@ -1,41 +1,83 @@
 import { FaInstagram } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "features/auth/context/AuthContext";
 
 export default function SideMenu({ setShowMenu }) {
+  const nav = useNavigate();
+  const { user, ready, logout } = useAuth();
+  const isLoggedIn = !!user;
+  const isAdmin = String(user?.role ?? "").toLowerCase() === "admin";
+
+  const go = (to) => {
+    setShowMenu(false);
+    nav(to);
+  };
+
   return (
-    <div className="fixed top-0 left-0 w-full sm:w-2/5 md:w-1/3 lg:w-1/5 h-full bg-red-500 text-white shadow-lg z-50 p-4 transition-transform">
-      <button onClick={() => setShowMenu(false)} className="mb-4 ml-[1px]">
-        <h2 className="text-sm font-bold">GET OUT</h2>
-      </button>
-      <nav className="text-4xl font-bold">
-        <ul className="space-y-1 mb-12">
-          <li><Link to="/category/all">ALL</Link></li>
-        </ul>
-        <div className="ml-3">
-          <ul className="space-y-1 mb-12">
-            <li><Link to="/category/outer">OUTER</Link></li>
-            <li><Link to="/category/top">TOP</Link></li>
-            <li><Link to="/category/bottom">BOTTOM</Link></li>
-            <li><Link to="/category/acc">ACC</Link></li>
-            <li><Link to="/category/for-artist">FOR-ARTIST</Link></li>
-          </ul>
-        </div>
-        <ul className="space-y-1 mb-8">
-          <li><Link to="/look">LOOK</Link></li>
-        </ul>
-        <ul className="space-y-1">
-          <li>
-            <a
-              href="https://www.instagram.com/nothinkingarea/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2"
+    <aside
+      className="
+        fixed top-0 left-0 z-50 h-dvh
+        w-[82%] max-w-[340px] md:w-[320px]
+        bg-red-500 text-white shadow-2xl
+        p-4 overflow-y-auto
+      "
+      role="dialog"
+      aria-label="메뉴"
+    >
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={() => setShowMenu(false)} className="px-2 py-2 -ml-2 text-sm font-bold">
+          GET OUT
+        </button>
+
+        {ready ? (
+          !isLoggedIn ? (
+            <button type="button" onClick={() => go("/auth/login")} className="text-sm font-extrabold underline">
+              LOGIN
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                setShowMenu(false);
+              }}
+              className="text-sm font-extrabold underline"
             >
-              <FaInstagram size={30} />
-            </a>
-          </li>
-        </ul>
+              LOGOUT
+            </button>
+          )
+        ) : null}
+      </div>
+
+      <nav className="mt-6 text-4xl font-bold space-y-8">
+        <div className="space-y-1">
+          <button onClick={() => go("/category/all")} className="block">ALL</button>
+        </div>
+
+        <div className="space-y-1 pl-3">
+          <button onClick={() => go("/category/outer")} className="block">OUTER</button>
+          <button onClick={() => go("/category/top")} className="block">TOP</button>
+          <button onClick={() => go("/category/bottom")} className="block">BOTTOM</button>
+          <button onClick={() => go("/category/acc")} className="block">ACC</button>
+          <button onClick={() => go("/category/for-artist")} className="block">FOR-ARTIST</button>
+        </div>
+
+        <div className="space-y-1 text-2xl font-semibold">
+          <button onClick={() => go("/look")} className="block">LOOK</button>
+          <button onClick={() => go("/qna")} className="block">Q&A</button>
+          <button onClick={() => go("/mypage")} className="block">MY PAGE</button>
+          {isAdmin && <button onClick={() => go("/admin")} className="block">ADMIN</button>}
+        </div>
+
+        <a
+          href="https://www.instagram.com/nothinkingarea/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2"
+        >
+          <FaInstagram size={30} />
+        </a>
       </nav>
-    </div>
+    </aside>
   );
 }

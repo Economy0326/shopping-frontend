@@ -59,7 +59,7 @@ export default function AdminProductEdit() {
           sizeGuideMdUrl: data.sizeGuideMdUrl || "",
           productInfoMdUrl: data.productInfoMdUrl || "",
           lookMdUrl: data.lookMdUrl || "",
-          optionGroups: data.optionGroups || [],
+          optionGroups,
         });
       } catch (e) {
         setErr(getApiErrorMessage(e, "상품 로드 실패"));

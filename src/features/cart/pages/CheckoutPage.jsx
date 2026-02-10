@@ -1,21 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "features/cart/context/CartContext";
 import { useAuth } from "features/auth/context/AuthContext";
 
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { SystemAPI } from "shared/api/system.api";
-import { getApiErrorMessage } from "shared/api/request";
+import {
+  getApiErrorMessage,
+  getApiErrorBody,
+  mapCheckoutErrorToUx,
+} from "shared/api/request";
+
+import { useBottomBarOffset } from "ui/hooks/useBottomBarOffset";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const bottomOffset = useBottomBarOffset();
+
   const { cart, clearCart, removeItems } = useCart();
   const { user } = useAuth();
 
+  // 에러 UX 표시용 
+  const topRef = useRef(null);
+  const [submitError, setSubmitError] = useState(null);
+
   // CartPage에서 넘어온 선택결제 데이터
-  // items: [{ key, productId, qty, options }], keys: [key, ...] 
+  // items: [{ key, productId, qty, options }], keys: [key, ...]
   const selectedItemsFromState = location.state?.selectedItems || null;
   const selectedKeysFromState = location.state?.selectedKeys || null;
 
@@ -44,6 +56,11 @@ export default function CheckoutPage() {
   const [agree, setAgree] = useState(false);
   const [saveAsDefault, setSaveAsDefault] = useState(true);
 
+  // 중복 제출방지
+  const [submitting, setSubmitting] = useState(false);
+  // 언마운트/중복 네비게이션 방지
+  const didNavigate = useRef(false);
+
   // bankAccount 정책(/system/policies/bankAccount)
   const [bankInfo, setBankInfo] = useState(null);
 
@@ -62,6 +79,14 @@ export default function CheckoutPage() {
     };
   }, []);
 
+  // 결제 대상 없으면 장바구니로 리다이렉트
+  useEffect(() => {
+    if (!payItems || payItems.length === 0) {
+      alert("결제할 상품이 없습니다. 장바구니로 이동합니다.");
+      navigate("/cart", { replace: true });
+    }
+  }, [payItems, navigate]);
+
   // 결제 총액: (상품가 + 옵션추가금) × 수량
   const total = useMemo(
     () =>
@@ -79,6 +104,7 @@ export default function CheckoutPage() {
     keys.every((k) => String(form[k] ?? "").trim().length > 0);
 
   const canSubmit =
+    !submitting &&
     payItems.length > 0 &&
     requiredFilled("name", "phone", "zipcode", "address1", "address2", "depositor") &&
     !!agree;
@@ -118,8 +144,15 @@ export default function CheckoutPage() {
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    if (!payItems.length) {
+    // 중복 제출 방지
+    if (submitting) return;
+
+    // 이전 에러 초기화
+    setSubmitError(null);
+
+    if (!payItems?.length) {
       alert("결제할 상품이 없습니다.");
+      navigate("/cart", { replace: true });
       return;
     }
 
@@ -137,7 +170,7 @@ export default function CheckoutPage() {
           qty: Number(it?.qty || 1),
         };
 
-        const rawOv = 
+        const rawOv =
           it?.options?.optionValues && typeof it.options.optionValues === "object"
             ? it.options.optionValues
             : null;
@@ -151,7 +184,7 @@ export default function CheckoutPage() {
               if (v) acc[k] = v;
               return acc;
             }, {});
-            
+
           if (Object.keys(cleaned).length) {
             base.options = cleaned;
           }
@@ -178,25 +211,81 @@ export default function CheckoutPage() {
     };
 
     try {
+      setSubmitting(true);
       const res = await OrdersAPI.checkout(payload);
+
+      // id 추출 실패 시 에러처리
       const newId = res?.data?.id ?? res?.id ?? res;
+      if (!newId) {
+        throw new Error("주문 생성은 되었으나 주문번호(id)를 확인할 수 없습니다.");
+      }
 
       // 결제 성공 후 장바구니 정리
       if (isSelectedCheckout) {
-        removeItems(selectedKeysFromState);
+        if (Array.isArray(selectedKeysFromState) && selectedKeysFromState.length) {
+          removeItems(selectedKeysFromState);
+        }
       } else {
         clearCart();
       }
 
-      navigate(`/order/${newId}`, { state: { justCreated: true } });
+      // 중복 네비게이션 방지
+      if (!didNavigate.current) {
+        didNavigate.current = true;
+        navigate(`/order/${newId}`, { state: { justCreated: true }, replace: true });
+      }
     } catch (err) {
-      alert(getApiErrorMessage(err, "주문 생성 중 오류가 발생했습니다."));
+      const body = getApiErrorBody(err);
+
+      if (body?.code) {
+        const ux = mapCheckoutErrorToUx(body.code, body.message, body.details);
+        setSubmitError(ux);
+
+        requestAnimationFrame(() => {
+          topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+      } else {
+        setSubmitError({
+          title: "주문 생성 실패",
+          message: getApiErrorMessage(err, "주문 생성 중 오류가 발생했습니다."),
+          action: { type: "retry", label: "다시 시도" },
+        });
+      }
+      didNavigate.current = false;
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <main className="max-w-3xl mx-auto p-6 grid gap-6">
+    <main
+      ref={topRef}
+      className="max-w-3xl mx-auto p-6 grid gap-6"
+      style={{
+        paddingBottom: `calc(24px + env(safe-area-inset-bottom) + ${bottomOffset}px)`,
+      }}
+    >
       <h1 className="text-2xl font-bold">주문서 작성</h1>
+
+      {/* 에러 UX 표시 */}
+      {submitError && (
+        <section className="border border-rose-200 bg-rose-50 rounded p-4">
+          <div className="font-bold text-rose-700">{submitError.title}</div>
+          <div className="mt-1 text-sm whitespace-pre-line text-rose-700">
+            {submitError.message}
+          </div>
+
+          {/* Validation 에러 상세(있을 때만) */}
+          {Array.isArray(submitError.fieldErrors) && submitError.fieldErrors.length > 0 && (
+            <ul className="mt-2 text-xs text-rose-700 list-disc pl-5 space-y-1">
+              {submitError.fieldErrors.slice(0, 6).map((m, i) => (
+                <li key={i}>{String(m)}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="border rounded p-4">
         <h2 className="font-bold mb-2">주문 상품</h2>
@@ -223,9 +312,7 @@ export default function CheckoutPage() {
           })}
         </ul>
 
-        <div className="mt-3 text-right font-bold">
-          합계: {total.toLocaleString()}원
-        </div>
+        <div className="mt-3 text-right font-bold">합계: {total.toLocaleString()}원</div>
       </section>
 
       <section className="border rounded p-4">
@@ -274,7 +361,12 @@ export default function CheckoutPage() {
         <div className="grid gap-2">
           <label className="text-sm font-semibold">주소</label>
           <div className="flex gap-2">
-            <input className="border rounded p-2 flex-1" value={form.zipcode} readOnly placeholder="우편번호" />
+            <input
+              className="border rounded p-2 flex-1"
+              value={form.zipcode}
+              readOnly
+              placeholder="우편번호"
+            />
             <button type="button" onClick={openPostcode} className="border rounded px-3">
               주소검색
             </button>
@@ -332,8 +424,12 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <button type="submit" disabled={!canSubmit} className="px-4 py-3 rounded bg-black text-white disabled:opacity-40">
-          주문 생성
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="px-4 py-3 rounded bg-black text-white disabled:opacity-40"
+        >
+          {submitting ? "주문 생성 중…" : "주문 생성"}
         </button>
       </form>
     </main>

@@ -4,10 +4,16 @@ import Footer from "ui/components/Footer";
 
 export default function Layout({ children }) {
   return (
-    <div className="min-h-dvh flex flex-col m-4 bg-white text-black">
+    <div className="min-h-dvh bg-white text-black">
       <HeaderUnified showLogo={false} />
-      <main className="flex-1">{children}</main>
-      <Footer />
+
+      <div className="px-3 md:px-8 lg:px-12">
+        <main className="min-h-[calc(100dvh-64px)] py-4 md:py-8">
+          {children}
+        </main>
+        <Footer />
+      </div>
+
       <ToastContainer />
     </div>
   );

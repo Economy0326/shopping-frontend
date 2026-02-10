@@ -137,16 +137,27 @@ export default function AdminOrderDetailPage() {
     const amount = order?.amounts?.grandTotal;
     if (!amount) return alert("환불 금액을 계산할 수 없습니다.");
 
-    if (!window.confirm(`환불 로그를 기록할까요?\n금액: ${formatWon(amount)}`))
+    // memo 필수
+    const memo = String(refundMemo ?? "").trim();
+    if (!memo) return alert("환불 메모를 입력하세요.");
+
+    // confirm에 메모 표시
+    if (
+      !window.confirm(
+        `환불 로그를 기록할까요?\n금액: ${formatWon(amount)}\n메모: ${memo}`
+      )
+    )
       return;
 
     try {
       setRefundSaving(true);
       await request(ADMIN.ORDERS.REFUND(order.id), {
         method: "POST",
-        body: { amount, memo: refundMemo ?? "" },
+        body: { amount, memo },
       });
       alert("환불 로그 기록 완료");
+      // 기록 후 메모 초기화
+      setRefundMemo("");
       await reload();
     } catch (e) {
       alert(getApiErrorMessage(e));
@@ -417,10 +428,12 @@ export default function AdminOrderDetailPage() {
 
           <input
             className="border rounded px-2 py-2 text-sm w-full"
-            placeholder="환불 메모(선택) 예: 무통장 환불 완료"
+            placeholder="환불 메모(필수) 예: 무통장 환불 완료"
             value={refundMemo}
             onChange={(e) => setRefundMemo(e.target.value)}
             disabled={!canRefund || refundSaving}
+            // 브라우저 기본 required(참고용), 실제 검증은 refundLog 함수에서 수행.
+            required
           />
         </div>
       </section>

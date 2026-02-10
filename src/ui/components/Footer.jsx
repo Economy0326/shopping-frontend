@@ -1,29 +1,28 @@
 import { useNavigate } from "react-router-dom";
-import siteMeta from "shared/utils/siteMeta"; // 경로는 프로젝트에 맞게 수정
+import siteMeta from "shared/utils/siteMeta"; // 경로는 프로젝트에 맞게
 
 export default function Footer() {
   const nav = useNavigate();
 
-  const linkCls =
-    "text-xs font-semibold hover:underline outline-none ring-0 [appearance:none]";
   const tapNone = { WebkitTapHighlightColor: "transparent" };
+  const linkCls =
+    "text-xs font-semibold hover:underline whitespace-nowrap " +
+    "py-2"; 
 
   const { companyName, ownerName, mailOrderNo, address, businessNo, csCenter, links } =
     siteMeta;
 
   return (
-    <footer className="border-t mt-8 pt-6 pb-10">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <footer className="border-t mt-10 pt-6 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="text-xs text-gray-600">
-          <div className="font-semibold text-black">
-            {companyName}
-          </div>
+          <div className="font-semibold text-black">{companyName}</div>
           <div className="mt-1">
             © {new Date().getFullYear()} {companyName}. All rights reserved.
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           <button
             type="button"
             className={linkCls}
@@ -40,8 +39,6 @@ export default function Footer() {
           >
             개인정보처리방침
           </button>
-
-          {/* 원하면 추가 */}
           <button
             type="button"
             className={linkCls}
@@ -58,8 +55,6 @@ export default function Footer() {
           >
             배송정책
           </button>
-
-          {/* 기존 Q&A 유지 */}
           <button
             type="button"
             className={linkCls}
@@ -71,7 +66,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="mt-4 text-[11px] leading-5 text-gray-500 whitespace-pre-line">
+      <div className="mt-5 text-[11px] leading-5 text-gray-500 whitespace-pre-line">
         {`상호: ${companyName}  |  대표: ${ownerName}
 사업자등록번호: ${businessNo}  |  통신판매업신고: ${mailOrderNo}
 주소: ${address}
