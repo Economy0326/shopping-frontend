@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "features/auth/context/AuthContext";
 import { QnaAPI } from "features/qna/api/qna.api";
 import AskDrawer from "features/qna/components/AskDrawer";
+import { notify } from "shared/ui/notify";
 
 function getApiErrorMessage(e) {
   return (
@@ -67,9 +68,9 @@ export default function AskListPage() {
       await refresh();
     } catch (e) {
       const status = e && e.response && e.response.status;
-      if (status === 401) alert("로그인이 필요합니다.");
-      else if (status === 403) alert("삭제 권한이 없습니다.");
-      else alert(getApiErrorMessage(e));
+      if (status === 401) notify.error("로그인이 필요합니다.");
+      else if (status === 403) notify.error("삭제 권한이 없습니다.");
+      else notify.error(getApiErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -113,7 +114,7 @@ export default function AskListPage() {
             <button
               onClick={() => {
                 if (items.length >= 3)
-                  return alert("문의는 최대 3개까지 등록 가능합니다. 기존 문의를 삭제하세요.");
+                  return notify.error("문의는 최대 3개까지 등록 가능합니다. 기존 문의를 삭제하세요.");
                 nav("/qna/ask/write");
               }}
               disabled={loading}

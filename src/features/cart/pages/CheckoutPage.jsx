@@ -82,7 +82,11 @@ export default function CheckoutPage() {
   // 결제 대상 없으면 장바구니로 리다이렉트
   useEffect(() => {
     if (!payItems || payItems.length === 0) {
-      alert("결제할 상품이 없습니다. 장바구니로 이동합니다.");
+      setSubmitError({
+        title: "결제 불가",
+        message: "결제할 상품이 없습니다. 장바구니로 이동합니다.",
+        action: { type: "go", label: "장바구니로" },
+      });
       navigate("/cart", { replace: true });
     }
   }, [payItems, navigate]);
@@ -137,8 +141,12 @@ export default function CheckoutPage() {
         },
       }).open();
     } catch {
-      alert("주소검색 스크립트를 불러오지 못했습니다.");
-    }
+        setSubmitError({
+          title: "주소 검색 실패",
+          message: "주소검색 스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+          action: { type: "retry", label: "다시 시도" },
+        });
+      }
   };
 
   const onSubmit = async (e) => {
@@ -151,13 +159,25 @@ export default function CheckoutPage() {
     setSubmitError(null);
 
     if (!payItems?.length) {
-      alert("결제할 상품이 없습니다.");
+      setSubmitError({
+        title: "결제 불가",
+        message: "결제할 상품이 없습니다. 장바구니로 이동합니다.",
+        action: { type: "go", label: "장바구니로" },
+      });
       navigate("/cart", { replace: true });
       return;
     }
 
     if (!canSubmit) {
-      alert("필수 항목을 확인해주세요.");
+      setSubmitError({
+        title: "입력값 확인",
+        message: "필수 항목을 확인해주세요.",
+        action: { type: "scroll", label: "위로" },
+      });
+
+      requestAnimationFrame(() => {
+        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
 
@@ -283,6 +303,22 @@ export default function CheckoutPage() {
                 <li key={i}>{String(m)}</li>
               ))}
             </ul>
+          )}
+
+          {/* action 버튼  */}
+          {submitError?.action && (
+            <button
+              type="button"
+              className="mt-3 border px-3 py-2 rounded text-sm"
+              onClick={() => {
+                if (submitError.action.type === "retry") onSubmit(new Event("submit"));
+                if (submitError.action.type === "scroll")
+                  topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (submitError.action.type === "go") navigate("/cart");
+              }}
+            >
+              {submitError.action.label}
+            </button>
           )}
         </section>
       )}

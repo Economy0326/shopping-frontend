@@ -93,7 +93,7 @@ export default function ReturnsPanel() {
 
   return (
     <PanelShell title="반품 내역">
-      <div ref={listRef} className="min-h-[60vh] max-h-[80vh] overflow-y-auto pr-1">
+      <div ref={listRef} className="min-h-[60vh] md:max-h-[80vh] md:overflow-y-auto pr-1">
         {err && <div className="text-rose-600 mb-3">{err}</div>}
 
         {loading && list.length === 0 ? (

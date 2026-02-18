@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
+import { notify } from "shared/ui/notify";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -68,7 +69,7 @@ export default function AdminOrdersPage() {
     } catch (e) {
       // 레이스 방지 - 최신 요청이 아니면 경고/상태변경도 하지 않음
       if (mySeq !== reqSeqRef.current) return;
-      alert(getApiErrorMessage(e, "주문 목록 로드 실패"));
+      notify.error(getApiErrorMessage(e, "주문 목록 로드 실패"));
     } finally {
       if (mySeq === reqSeqRef.current) setLoading(false);
     }
@@ -105,10 +106,10 @@ export default function AdminOrdersPage() {
 
     try {
       await request(ADMIN.ORDERS.DEPOSIT(order.id), { method: "POST" });
-      alert("입금 확인 완료");
+      notify.success("입금 확인 완료");
       await load(meta.page || 1);
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e, "입금 확인 실패"));
     }
   };
 

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import siteMeta from "shared/utils/siteMeta"; // 경로는 프로젝트에 맞게
+import siteMeta from "shared/constants/siteMeta";
 
 export default function Footer() {
   const nav = useNavigate();

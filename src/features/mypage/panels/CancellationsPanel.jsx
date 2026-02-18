@@ -3,7 +3,7 @@ import { PanelShell } from "features/mypage/panels/_shared";
 import { getApiErrorMessage } from "shared/api/request";
 import { printCancellation } from "shared/utils/print";
 import { OrdersAPI } from "features/orders/api/orders.api";
-import { OrderStatus } from "shared/utils/orderPolicy";
+import { OrderStatus } from "shared/constants/orderStatus";
 
 function formatWon(n) {
   const v = Number(n) || 0;
@@ -123,7 +123,7 @@ export default function CancellationsPanel() {
 
   return (
     <PanelShell title="취소 내역">
-      <div ref={listRef} className="min-h-[60vh] max-h-[80vh] overflow-y-auto pr-1">
+      <div ref={listRef} className="min-h-[60vh] md:max-h-[80vh] md:overflow-y-auto pr-1">
         {err && <div className="text-rose-600 mb-3">{err}</div>}
 
         {loading && list.length === 0 ? (

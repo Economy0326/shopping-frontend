@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminFaqAPI } from "features/admin/api/adminFaq.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 const btnBase =
   "uppercase font-extrabold tracking-tight text-sm md:text-base outline-none ring-0 [appearance:none] select-none";
@@ -19,7 +20,7 @@ export default function AdminFaqPage() {
       const text = typeof data === "string" ? data : data?.value ?? "";
       setValue(text);
     } catch (e) {
-      alert(getApiErrorMessage(e, "FAQ 불러오기 실패"));
+      notify.error(getApiErrorMessage(e, "FAQ 불러오기 실패"));
       setValue("");
     } finally {
       setLoading(false);
@@ -34,10 +35,10 @@ export default function AdminFaqPage() {
     try {
       setSaving(true);
       await AdminFaqAPI.update(value);
-      alert("저장 완료");
+      notify.success("FAQ 저장 완료");
       await load();
     } catch (e) {
-      alert(getApiErrorMessage(e, "저장 실패"));
+      notify.error(getApiErrorMessage(e, "FAQ 저장 실패"));
     } finally {
       setSaving(false);
     }

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { SYSTEM } from "shared/api/endpoints";
-import { statusLabel, statusColor } from "shared/utils/constants";
+import { statusLabel, statusColor } from "shared/utils/orderStatusView";
 import { buildTrackingUrl } from "shared/utils/buildTrackingUrl";
 import {
   canCancel,
@@ -11,6 +11,7 @@ import {
   isShippingVisible,
   isBankInfoVisible,
 } from "shared/utils/orderPolicy";
+import { notify } from "shared/ui/notify";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -96,7 +97,7 @@ export default function OrderDetailPage() {
   const showBankInfo = isBankInfoVisible(status);
 
   const submitCancel = async () => {
-    if (!cancelForm.reason.trim()) return alert("취소 사유를 입력해주세요.");
+    if (!cancelForm.reason.trim()) return notify.error("취소 사유를 입력해주세요.");
     try {
       setCancelSaving(true);
       await OrdersAPI.cancelRequest({
@@ -104,18 +105,18 @@ export default function OrderDetailPage() {
         reason: cancelForm.reason.trim(),
         memo: cancelForm.memo?.trim() ?? "",
       });
-      alert("취소 요청이 완료되었습니다.");
+      notify.success("취소 요청이 완료되었습니다.");
       setCancelOpen(false);
       await load();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     } finally {
       setCancelSaving(false);
     }
   };
 
   const submitReturn = async () => {
-    if (!returnForm.reason.trim()) return alert("반품 사유를 입력해주세요.");
+    if (!returnForm.reason.trim()) return notify.error("반품 사유를 입력해주세요.");
     try {
       setReturnSaving(true);
       await OrdersAPI.returnRequest({
@@ -123,11 +124,11 @@ export default function OrderDetailPage() {
         reason: returnForm.reason.trim(),
         memo: returnForm.memo?.trim() ?? "",
       });
-      alert("반품 신청이 접수되었습니다.");
+      notify.success("반품 신청이 접수되었습니다.");
       setReturnOpen(false);
       await load();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     } finally {
       setReturnSaving(false);
     }
@@ -135,7 +136,7 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <main className="max-w-3xl mx-auto p-6 grid place-items-center min-h-[40vh]">
+      <main className="max-w-3xl mx-auto p-4 sm:p-6 grid place-items-center min-h-[40vh]">
         로딩중…
       </main>
     );
@@ -143,7 +144,7 @@ export default function OrderDetailPage() {
 
   if (err) {
     return (
-      <main className="max-w-3xl mx-auto p-6">
+      <main className="max-w-3xl mx-auto p-4 sm:p-6">
         <p className="text-rose-600">{err}</p>
       </main>
     );
@@ -151,19 +152,19 @@ export default function OrderDetailPage() {
 
   if (!order) {
     return (
-      <main className="max-w-3xl mx-auto p-6">
+      <main className="max-w-3xl mx-auto p-4 sm:p-6">
         주문을 찾을 수 없습니다.
       </main>
     );
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6 grid gap-6">
+    <main className="max-w-3xl mx-auto p-4 sm:p-6 grid gap-4 sm:gap-6">
       {/* header */}
-      <header className="flex justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">주문 상세</h1>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(
                 status
@@ -176,14 +177,17 @@ export default function OrderDetailPage() {
         </div>
       </header>
 
-      {/* 금액 */}
+      {/* 금액 + 취소 */}
       <section className="border rounded-2xl p-4">
-        총 결제금액: <b>{formatWon(order.amounts?.grandTotal)}</b>
-        <div className="mt-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-base">
+            총 결제금액: <b>{formatWon(order.amounts?.grandTotal)}</b>
+          </div>
+
           <button
             disabled={!canCancelBtn}
             onClick={() => setCancelOpen(true)}
-            className={`px-4 py-2 rounded-xl text-sm text-white ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-xl text-sm text-white ${
               canCancelBtn ? "bg-black" : "bg-gray-300 cursor-not-allowed"
             }`}
           >
@@ -242,9 +246,9 @@ export default function OrderDetailPage() {
               </div>
               <button
                 onClick={() =>
-                  trackingUrl ? window.open(trackingUrl, "_blank") : alert("조회 링크 없음")
+                  trackingUrl ? window.open(trackingUrl, "_blank") : notify.error("조회 링크 없음")
                 }
-                className="mt-2 border px-3 py-2 rounded-xl text-sm"
+                className="mt-3 w-full sm:w-auto border px-3 py-2 rounded-xl text-sm"
               >
                 배송 조회
               </button>
@@ -270,23 +274,31 @@ export default function OrderDetailPage() {
         <button
           disabled={!canOpenReturn}
           onClick={() => setReturnOpen(true)}
-          className={`mt-3 px-4 py-2 rounded-xl text-sm text-white ${
+          className={`mt-3 w-full sm:w-auto px-4 py-2 rounded-xl text-sm text-white ${
             canOpenReturn ? "bg-black" : "bg-gray-300 cursor-not-allowed"
           }`}
         >
           반품 신청
         </button>
+
+        {!canReturnBtn && (
+          <p className="mt-2 text-xs text-gray-500">
+            반품은 배송완료 상태에서만 신청할 수 있습니다.
+          </p>
+        )}
       </section>
 
       {/* 환불 로그 */}
       <section className="border rounded-2xl p-4">
         <h2 className="font-bold mb-2">환불 로그</h2>
         {order.refundLogs?.length ? (
-          order.refundLogs.map((r) => (
-            <div key={r.id} className="text-sm">
-              {formatWon(r.amount)} / {r.memo}
-            </div>
-          ))
+          <div className="grid gap-1">
+            {order.refundLogs.map((r) => (
+              <div key={r.id} className="text-sm">
+                {formatWon(r.amount)} / {r.memo}
+              </div>
+            ))}
+          </div>
         ) : (
           <p className="text-sm text-gray-600">환불 내역 없음</p>
         )}
@@ -300,19 +312,23 @@ export default function OrderDetailPage() {
         disableClose={cancelSaving}
       >
         <input
-          className="w-full border p-2 mb-2"
+          className="w-full border p-2 mb-2 rounded"
           placeholder="사유"
           value={cancelForm.reason}
           onChange={(e) => setCancelForm((f) => ({ ...f, reason: e.target.value }))}
         />
         <textarea
-          className="w-full border p-2 mb-3"
+          className="w-full border p-2 mb-3 rounded"
           placeholder="메모(선택)"
           value={cancelForm.memo}
           onChange={(e) => setCancelForm((f) => ({ ...f, memo: e.target.value }))}
         />
-        <button onClick={submitCancel} className="bg-black text-white px-4 py-2 rounded">
-          요청
+        <button
+          onClick={submitCancel}
+          disabled={cancelSaving}
+          className="w-full bg-black text-white px-4 py-2 rounded disabled:opacity-40"
+        >
+          {cancelSaving ? "요청 중…" : "요청"}
         </button>
       </Modal>
 
@@ -323,19 +339,23 @@ export default function OrderDetailPage() {
         disableClose={returnSaving}
       >
         <input
-          className="w-full border p-2 mb-2"
+          className="w-full border p-2 mb-2 rounded"
           placeholder="사유"
           value={returnForm.reason}
           onChange={(e) => setReturnForm((f) => ({ ...f, reason: e.target.value }))}
         />
         <textarea
-          className="w-full border p-2 mb-3"
+          className="w-full border p-2 mb-3 rounded"
           placeholder="메모(선택)"
           value={returnForm.memo}
           onChange={(e) => setReturnForm((f) => ({ ...f, memo: e.target.value }))}
         />
-        <button onClick={submitReturn} className="bg-black text-white px-4 py-2 rounded">
-          신청
+        <button
+          onClick={submitReturn}
+          disabled={returnSaving}
+          className="w-full bg-black text-white px-4 py-2 rounded disabled:opacity-40"
+        >
+          {returnSaving ? "신청 중…" : "신청"}
         </button>
       </Modal>
     </main>

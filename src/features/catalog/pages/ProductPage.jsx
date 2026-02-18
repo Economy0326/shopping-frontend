@@ -1,6 +1,6 @@
 // 상품 상세페이지 + 룩북 상세페이지 (value 기반)
 // optionGroups.value(string) + stock 기반
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
 
 import { useCart } from "features/cart/context/CartContext";
@@ -129,6 +129,90 @@ export default function ProductPage() {
   const sizeOptions = Array.isArray(sizeGroup?.options) ? sizeGroup.options : [];
   const colorOptions = Array.isArray(colorGroup?.options) ? colorGroup.options : [];
 
+  // 스와이프용 ref/state
+  const swipeRef = useRef({
+    startX: 0,
+    startY: 0,
+    dx: 0,
+    dy: 0,
+    active: false,
+  });
+
+  // active 중앙 자동 스크롤
+  const navWrapRef = useRef(null); 
+  const activeLinkRef = useRef(null); 
+  const currentCat = product?.categorySlug || "all"; 
+
+  useEffect(() => {
+    // 레이아웃/폰트 적용 후 스크롤되도록 RAF 2번
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        activeLinkRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      });
+    });
+  }, [currentCat]);
+
+  // 공통 next/prev 함수 (버튼/스와이프 모두 사용)
+  const goPrevImage = () => {
+    if (images.length <= 1) return;
+    setCurrentIndex((i) => (i - 1 + images.length) % images.length);
+  };
+  const goNextImage = () => {
+    if (images.length <= 1) return;
+    setCurrentIndex((i) => (i + 1) % images.length);
+  };
+
+  // 터치 스와이프 핸들러 (모바일에서 점+스와이프 조합)
+  const onTouchStart = (e) => {
+    if (images.length <= 1) return;
+    const t = e.touches?.[0];
+    if (!t) return;
+    swipeRef.current.startX = t.clientX;
+    swipeRef.current.startY = t.clientY;
+    swipeRef.current.dx = 0;
+    swipeRef.current.dy = 0;
+    swipeRef.current.active = true;
+  };
+
+  const onTouchMove = (e) => {
+    if (!swipeRef.current.active) return;
+    const t = e.touches?.[0];
+    if (!t) return;
+    swipeRef.current.dx = t.clientX - swipeRef.current.startX;
+    swipeRef.current.dy = t.clientY - swipeRef.current.startY;
+
+    // 세로 스크롤을 막지 않기 위해 여기서는 preventDefault 안 함
+  };
+
+  const onTouchEnd = () => {
+    if (!swipeRef.current.active) return;
+    swipeRef.current.active = false;
+
+    const { dx, dy } = swipeRef.current;
+
+    // “가로 스와이프 의도”일 때만 넘기기
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    // 세로가 더 크면 스크롤로 간주
+    if (absY > absX) return;
+
+    // 민감도(임계값)
+    const THRESHOLD = 45;
+
+    if (dx > THRESHOLD) {
+      // 오른쪽으로 밀면 이전
+      goPrevImage();
+    } else if (dx < -THRESHOLD) {
+      // 왼쪽으로 밀면 다음
+      goNextImage();
+    }
+  };
+
   // 현재 선택 기반 “조합 가능 재고(대략치)” 계산
   // - 둘 다 선택되면 min(sizeStock, colorStock)
   // - 하나만 선택되면 해당 옵션 stock
@@ -223,7 +307,8 @@ export default function ProductPage() {
       const infoMdUrl = product?.productInfoMdUrl ?? "";
 
       const sizeTextFallback = product?.sizeGuideText ?? "";
-      const infoTextFallback = product?.productInfoText ?? product?.description ?? "";
+      const infoTextFallback =
+        product?.productInfoText ?? product?.description ?? "";
 
       const [sizeMdText, infoMdText] = await Promise.all([
         sizeMdUrl ? fetchTextMaybe(sizeMdUrl) : "",
@@ -292,7 +377,10 @@ export default function ProductPage() {
     const needsSize = sizeOptions.length > 0;
     const needsColor = colorOptions.length > 0;
 
-    if ((needsSize && !selectedSizeValue) || (needsColor && !selectedColorValue)) {
+    if (
+      (needsSize && !selectedSizeValue) ||
+      (needsColor && !selectedColorValue)
+    ) {
       setError("색상과 사이즈를 선택해주세요.");
       return false;
     }
@@ -315,8 +403,10 @@ export default function ProductPage() {
     if (!validateSelection()) return false;
 
     const optionValues = {};
-    if (sizeOptions.length > 0 && selectedSizeValue) optionValues.size = selectedSizeValue;
-    if (colorOptions.length > 0 && selectedColorValue) optionValues.color = selectedColorValue;
+    if (sizeOptions.length > 0 && selectedSizeValue)
+      optionValues.size = selectedSizeValue;
+    if (colorOptions.length > 0 && selectedColorValue)
+      optionValues.color = selectedColorValue;
 
     // priceDelta: 옵션 조합 추가금이 없으면 0
     // (추가금 정책이 생기면 여기서 계산해서 넣으면 Cart/Checkout 총액이 자동 반영됨)
@@ -355,7 +445,7 @@ export default function ProductPage() {
         {isLook ? (
           <nav
             aria-label="카테고리"
-            className="flex justify-center w-full xl:w-4/5 mx-auto p-5 bg-white"
+            className="flex justify-center w-full md:w-[70%] mx-auto p-5 bg-white"
           >
             <NavLink
               to="/look"
@@ -372,67 +462,123 @@ export default function ProductPage() {
             </NavLink>
           </nav>
         ) : (
-          <nav className="flex justify-between gap-2 xl:gap-4 w-full xl:w-4/5 mx-auto p-5 bg-white">
-            {categories.map((cat) => (
-              <NavLink
-                key={cat}
-                to={`/category/${cat}`}
-                className={({ isActive }) =>
-                  `text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200 ${
-                    isActive ? "text-white" : "text-red-500"
-                  }`
-                }
-                style={({ isActive }) =>
-                  isActive ? { WebkitTextStroke: "1px red" } : {}
-                }
-              >
-                {cat}
-              </NavLink>
-            ))}
-          </nav>
+          // (모바일) 스냅/스크롤 + 페이드 (sm+) 스크롤 없이 전체 노출
+          <div className="relative w-full sm:w-[80%] mx-auto p-5 bg-white">
+            <nav
+              ref={navWrapRef}
+              className="
+                flex flex-nowrap items-center 
+                justify-start sm:justify-between
+                gap-3 sm:gap-6 xl:gap-10
+                overflow-x-auto sm:overflow-x-visible
+                scroll-smooth
+                [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+                [scroll-snap-type:x_mandatory] sm:[scroll-snap-type:none]
+              "
+              aria-label="카테고리"
+            >
+              {categories.map((cat) => (
+                <NavLink
+                  key={cat}
+                  to={`/category/${cat}`}
+                  ref={currentCat === cat ? activeLinkRef : null}
+                  className={({ isActive }) =>
+                    `shrink-0 sm:shrink text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200
+                    [scroll-snap-align:center]
+                    ${isActive ? "text-white" : "text-red-500"}`
+                  }
+                  style={({ isActive }) =>
+                    isActive ? { WebkitTextStroke: "1px red" } : {}
+                  }
+                >
+                  {cat}
+                </NavLink>
+              ))}
+            </nav>
+
+            {/* 페이드 힌트(오른쪽) */}
+            <div className="sm:hidden pointer-events-none absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-white via-white/90 to-transparent" />
+            {/* 페이드 힌트(왼쪽) */}
+            <div className="sm:hidden pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-white via-white/90 to-transparent" />
+          </div>
         )}
       </header>
 
       {/* 상세 */}
       <main className="max-w-screen-2xl mx-auto p-6 grid gap-12 lg:grid-cols-2">
         {/* 이미지 */}
-        <div className="lg:sticky lg:top-6 justify-self-center">
-          <div className="relative w-[520px] mx-auto lg:mx-0">
-            {images.length > 1 && (
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentIndex((i) => (i - 1 + images.length) % images.length)
-                }
-                className="group absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 z-20 w-12 h-[16%] min-h-12 flex items-center justify-center"
-                aria-label="이전 이미지"
-              >
-                <TriangleArrow
-                  className="h-[145%] text-red-500 scale-y-150 transition-transform"
-                  direction="left"
-                />
-              </button>
-            )}
+        <div className="lg:sticky lg:top-6 justify-self-center w-full">
+          <div className="w-full max-w-[520px] mx-auto">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-4">
+              {/* LEFT ARROW (sm 이상에서만 노출) */}
+              {images.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={goPrevImage}
+                  className="
+                    hidden sm:grid
+                    w-12 h-24 place-items-center translate-x-2
+                    hover:shadow-lg hover:bg-red-50 active:scale-95
+                  "
+                  aria-label="이전 이미지"
+                >
+                  <TriangleArrow className="w-12 h-24 text-red-500" direction="left" />
+                </button>
+              ) : (
+                <div className="hidden sm:block w-12 h-12" aria-hidden="true" />
+              )}
 
-            <img
-              src={images[currentIndex]?.url ?? images[currentIndex]}
-              alt={`${product?.name || "product"} ${currentIndex + 1}`}
-              className="w-full h-auto object-cover rounded-2xl"
-            />
-
-            {images.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setCurrentIndex((i) => (i + 1) % images.length)}
-                className="group absolute top-1/2 right-0 translate-x-full -translate-y-1/2 z-20 w-12 h-[16%] min-h-12 flex items-center justify-center"
-                aria-label="다음 이미지"
+              {/* IMAGE + SWIPE HANDLERS */}
+              <div
+                className="relative"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
               >
-                <TriangleArrow
-                  className="h-[145%] text-red-500 scale-y-150 transition-transform"
-                  direction="right"
+                <img
+                  src={images[currentIndex]?.url ?? images[currentIndex]}
+                  alt={`${product?.name || "product"} ${currentIndex + 1}`}
+                  className="w-full h-auto object-cover rounded-2xl"
+                  draggable={false} // 모바일 드래그/롱프레스 느낌 완화
                 />
-              </button>
-            )}
+
+                {/* MOBILE DOT INDICATOR (sm 미만에서만) */}
+                {images.length > 1 && (
+                  <div className="sm:hidden absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    {images.map((_, idx) => (
+                      <button
+                        key={`dot-${idx}`}
+                        type="button"
+                        onClick={() => setCurrentIndex(idx)}
+                        aria-label={`${idx + 1}번 이미지로 이동`}
+                        className={[
+                          "w-2.5 h-2.5 rounded-full transition-transform",
+                          idx === currentIndex ? "bg-red-500 scale-110" : "bg-red-200",
+                        ].join(" ")}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT ARROW (sm 이상에서만 노출) */}
+              {images.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={goNextImage}
+                  className="
+                    hidden sm:grid
+                    w-12 h-24 place-items-center -translate-x-2
+                    hover:shadow-lg hover:bg-red-50 active:scale-95
+                  "
+                  aria-label="다음 이미지"
+                >
+                  <TriangleArrow className="w-12 h-24 text-red-500" direction="right" />
+                </button>
+              ) : (
+                <div className="hidden sm:block w-12 h-12" aria-hidden="true" />
+              )}
+            </div>
           </div>
         </div>
 
@@ -531,11 +677,67 @@ export default function ProductPage() {
               </div>
 
               {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+
+              {/* 모바일 전용 컨트롤 */}
+              <div className="sm:hidden grid gap-3">
+                {/* 수량 */}
+                <div className="flex items-center justify-start">
+                  <button
+                    type="button"
+                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={qty}
+                    onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
+                              [&::-webkit-inner-spin-button]:appearance-none
+                              [&::-webkit-outer-spin-button]:appearance-none
+                              [-moz-appearance:textfield]"
+                  />
+                  <button
+                    type="button"
+                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                    onClick={() => setQty((q) => q + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* BUY + 장바구니 */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    disabled={buyDisabled}
+                    aria-disabled={buyDisabled}
+                    className="flex-1 h-10 bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    BUY!
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddOnly}
+                    disabled={buyDisabled}
+                    aria-disabled={buyDisabled}
+                    aria-label="장바구니에 담기"
+                    className="w-8 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    <img src="/mood/bag.png" alt="bag" className="w-5 h-8" />
+                  </button>
+                </div>
+              </div>
             </>
           )}
 
+          {/* sm 이상(모바일보다 큰 화면)에서만 기존 가로 줄 유지 */}
           {!isLook && (
-            <div className="flex w-full h-10 items-center gap-2">
+            <div className="hidden sm:flex w-full h-10 items-center gap-2">
               <button
                 type="button"
                 onClick={handleBuyNow}

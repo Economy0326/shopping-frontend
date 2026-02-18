@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "features/auth/context/AuthContext";
 import { QnaAPI } from "features/qna/api/qna.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 export default function AskWritePage() {
   const nav = useNavigate();
@@ -16,8 +17,8 @@ export default function AskWritePage() {
 
   const submit = async () => {
     if (!ready) return;
-    if (!isLoggedIn) return alert("로그인 후 작성할 수 있어요.");
-    if (!title.trim() || !body.trim()) return alert("제목/내용을 입력하세요.");
+    if (!isLoggedIn) return notify.error("로그인 후 작성할 수 있어요.");
+    if (!title.trim() || !body.trim()) return notify.error("제목/내용을 입력하세요.");
 
     try {
       setSaving(true);
@@ -29,7 +30,7 @@ export default function AskWritePage() {
 
       nav("/qna?tab=ask", { replace: true });
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     } finally {
       setSaving(false);
     }

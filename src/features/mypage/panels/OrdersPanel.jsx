@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "features/mypage/panels/_shared";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { getApiErrorMessage } from "shared/api/request";
-import { statusLabel, statusColor } from "shared/utils/constants";
+import { statusLabel, statusColor } from "shared/utils/orderStatusView";
 import { Link } from "react-router-dom";
 import { canConfirm } from "shared/utils/orderPolicy";
+import { notify } from "shared/ui/notify";
 
 function formatWon(n) {
   const v = Number(n) || 0;
@@ -143,7 +144,7 @@ export default function OrdersPanel() {
       await load(1);
       
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -151,7 +152,7 @@ export default function OrdersPanel() {
 
   return (
     <PanelShell title="나의 주문">
-      <div ref={listRef} className="min-h-[60vh] max-h-[80vh] overflow-y-auto pr-1">
+      <div ref={listRef} className="min-h-[60vh] md:max-h-[80vh] md:overflow-y-auto pr-1">
         {err && <div className="text-rose-600 mb-3">{err}</div>}
 
         {loading && list.length === 0 ? (

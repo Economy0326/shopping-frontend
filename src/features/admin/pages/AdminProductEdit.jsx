@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AdminProductsAPI } from "features/admin/api/adminProducts.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 function toNumber(v, fallback = 0) {
   const n = Number(v);
@@ -87,7 +88,7 @@ export default function AdminProductEdit() {
       }
       setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
     } catch (e) {
-      alert(getApiErrorMessage(e, "이미지 업로드 실패"));
+      notify.error(getApiErrorMessage(e, "이미지 업로드 실패"));
     } finally {
       setUploading(false);
     }
@@ -164,10 +165,10 @@ export default function AdminProductEdit() {
 
       await AdminProductsAPI.update(id, payload);
 
-      alert("상품이 수정되었습니다.");
+      notify.success("상품이 수정되었습니다.");
       nav("/admin/products");
     } catch (e) {
-      alert(getApiErrorMessage(e, "상품 수정 실패"));
+      notify.error(getApiErrorMessage(e, "상품 수정 실패"));
     } finally {
       setSaving(false);
     }
@@ -179,10 +180,10 @@ export default function AdminProductEdit() {
     try {
       setLoading(true);
       await AdminProductsAPI.remove(id);
-      alert("삭제되었습니다.");
+      notify.success("삭제되었습니다.");
       nav("/admin/products");
     } catch (e) {
-      alert(getApiErrorMessage(e, "삭제 실패"));
+      notify.error(getApiErrorMessage(e, "삭제 실패"));
     } finally {
       setLoading(false);
     }

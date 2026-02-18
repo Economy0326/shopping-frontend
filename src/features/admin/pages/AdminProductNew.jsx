@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminProductsAPI } from "features/admin/api/adminProducts.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 function toNumber(v, fallback = 0) {
   const n = Number(v);
@@ -82,7 +83,7 @@ export default function AdminProductNew() {
       // 업로드된 이미지 URL을 form.images에 누적
       setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
     } catch (e) {
-      alert(getApiErrorMessage(e, "이미지 업로드 실패"));
+      notify.error(getApiErrorMessage(e, "이미지 업로드 실패"));
     } finally {
       setUploading(false);
     }
@@ -179,13 +180,13 @@ export default function AdminProductNew() {
       const created = res?.data ?? null;
       const id = created?.id ?? created?.productId ?? null;
 
-      alert("상품이 등록되었습니다.");
+      notify.success("상품이 등록되었습니다.");
 
       // id가 있으면 상품 상세로 이동
       if (id) nav(`/product/${id}`);
       else nav(`/products`);
     } catch (e) {
-      alert(getApiErrorMessage(e, "상품 등록 실패"));
+      notify.error(getApiErrorMessage(e, "상품 등록 실패"));
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,6 @@
-export const POLICY_KEYS = {
-  RETURNS: "returns",
+// SystemPolicy 조회용
+export const POLICY_KEYS = Object.freeze({
   BANK_ACCOUNT: "bankAccount",
-  SHIPPING: "shipping", // 선택
-};
+  FAQ: "faq",
+  SHIPPING_CARRIERS: "shippingCarriers", 
+});

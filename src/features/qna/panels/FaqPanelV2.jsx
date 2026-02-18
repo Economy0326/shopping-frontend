@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { SystemAPI } from "shared/api/system.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 export default function FaqPanelV2() {
   const [value, setValue] = useState("");
@@ -16,7 +17,7 @@ export default function FaqPanelV2() {
       setValue(text);
     } catch (e) {
       setValue("");
-      alert(getApiErrorMessage(e, "FAQ 불러오기 실패"));
+      notify.error(getApiErrorMessage(e, "FAQ 불러오기 실패"));
     } finally {
       setLoading(false);
     }

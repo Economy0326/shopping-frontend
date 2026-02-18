@@ -8,6 +8,13 @@ const CancellationsPanel = lazy(() => import("../panels/CancellationsPanel"));
 const ReturnsPanel = lazy(() => import("../panels/ReturnsPanel"));
 const ProfilePanel = lazy(() => import("../panels/ProfilePanel"));
 
+const tabs = [
+  { key: "orders", label: "전체 주문내역" },
+  { key: "cancellations", label: "결제 취소 내역" },
+  { key: "returns", label: "반품 내역" },
+  { key: "profile", label: "내 정보 수정" },
+];
+
 export default function MyPageLayout() {
   const [sp, setSp] = useSearchParams();
   const tab = sp.get("tab") || "orders";
@@ -15,61 +22,98 @@ export default function MyPageLayout() {
 
   const { user, ready } = useAuth();
 
-  // 앱 시작 시 세션 체크 중
-  if (!ready) return <div>로딩중…</div>;
-
-  // 비로그인: 어떤 /mypage 경로로 와도 고정 화면
+  if (!ready) return <div className="p-6">로딩중…</div>;
   if (!user) return <LoginRequired />;
 
   const username = user.username;
 
-  // 사이드바 active 스타일
-  const itemCls = (key) =>
-    `block rounded ${
-      tab === key
-        ? "text-white font-semibold"
-        : "text-white/80 hover:text-black"
-    }`;
+  const current = tab;
 
   return (
     <div className="mx-auto">
-      <div className="flex">
-        {/* 사이드바 */}
+      {/* 모바일 탭바 (md 미만에서만 보임) */}
+      <div className="md:hidden sticky top-0 z-20 bg-red-500 text-white border-b boarder-red-600">
+        <div className="px-3 py-2 overflow-x-auto">
+          <div className="flex gap-2 w-max">
+            {tabs.map((t) => {
+              const isActive = current === t.key;
+
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={[
+                    "shrink-0 rounded-full px-3 py-2 text-sm font-bold transition",
+                    isActive
+                      ? "bg-white text-red-600"
+                      : "bg-red-500 text-white/80 border border-white/30 hover:text-white hover:border-white/60",
+                  ].join(" ")}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-[60vh]">
+        {/* 데스크탑 사이드바 (md 이상에서만) */}
         <aside
-          className="bg-red-500 flex-none shrink-0 sticky top-16
-                    h-[calc(100vh-4rem)] overflow-auto p-3 z-10
-                    w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 min-w-[200px]"
+          className="
+            hidden md:block
+            bg-red-500 text-white
+            flex-none shrink-0
+            sticky top-16
+            h-[calc(100vh-4rem)]
+            overflow-auto
+            p-3 z-10
+            w-64
+          "
         >
           <div className="space-y-5">
-            {/* 주문 관련 */}
             <div className="space-y-2">
-              <div className="text-xl text-white font-bold">나의 주문</div>
+              <div className="text-xl font-bold">나의 주문</div>
               <button
-                className={`${itemCls("orders")} outline-none ring-0 [appearance:none]`}
+                type="button"
                 onClick={() => setTab("orders")}
+                className={`block rounded px-2 py-1 ${
+                  tab === "orders" ? "text-white font-semibold" : "text-white/80 hover:text-black"
+                }`}
               >
                 전체 주문내역
               </button>
               <button
-                className={`${itemCls("cancellations")} outline-none ring-0 [appearance:none]`}
+                type="button"
                 onClick={() => setTab("cancellations")}
+                className={`block rounded px-2 py-1 ${
+                  tab === "cancellations"
+                    ? "text-white font-semibold"
+                    : "text-white/80 hover:text-black"
+                }`}
               >
                 결제 취소 내역
               </button>
               <button
-                className={`${itemCls("returns")} outline-none ring-0 [appearance:none]`}
+                type="button"
                 onClick={() => setTab("returns")}
+                className={`block rounded px-2 py-1 ${
+                  tab === "returns" ? "text-white font-semibold" : "text-white/80 hover:text-black"
+                }`}
               >
                 반품 내역
               </button>
             </div>
 
-            {/* 내 정보 수정 */}
             <div className="space-y-2">
-              <div className="text-xl text-white font-bold">내 정보</div>
+              <div className="text-xl font-bold">내 정보</div>
               <button
-                className={`${itemCls("profile")} outline-none ring-0 [appearance:none]`}
+                type="button"
                 onClick={() => setTab("profile")}
+                className={`block rounded px-2 py-1 ${
+                  tab === "profile" ? "text-white font-semibold" : "text-white/80 hover:text-black"
+                }`}
               >
                 내 정보 수정
               </button>
@@ -77,8 +121,8 @@ export default function MyPageLayout() {
           </div>
         </aside>
 
-        {/* 본 내용 */}
-        <section className="flex-1 min-w-0 p-4 min-h-[60vh]">
+        {/* 본문 */}
+        <section className="flex-1 min-w-0 p-3 sm:p-4">
           <Suspense fallback={<div>불러오는 중…</div>}>
             {tab === "orders" && <OrdersPanel username={username} />}
             {tab === "cancellations" && <CancellationsPanel />}

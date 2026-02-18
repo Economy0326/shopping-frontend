@@ -2,7 +2,7 @@ import { FaInstagram } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "features/auth/context/AuthContext";
 
-export default function SideMenu({ setShowMenu }) {
+export default function SideMenu({ setShowMenu, setShowLoginModal }) {
   const nav = useNavigate();
   const { user, ready, logout } = useAuth();
   const isLoggedIn = !!user;
@@ -11,6 +11,11 @@ export default function SideMenu({ setShowMenu }) {
   const go = (to) => {
     setShowMenu(false);
     nav(to);
+  };
+
+  const openLogin = () => {
+    setShowMenu(false);
+    if (typeof setShowLoginModal === "function") setShowLoginModal(true);
   };
 
   return (
@@ -25,13 +30,21 @@ export default function SideMenu({ setShowMenu }) {
       aria-label="메뉴"
     >
       <div className="flex items-center justify-between">
-        <button type="button" onClick={() => setShowMenu(false)} className="px-2 py-2 -ml-2 text-sm font-bold">
+        <button
+          type="button"
+          onClick={() => setShowMenu(false)}
+          className="px-2 py-2 -ml-2 text-sm font-bold"
+        >
           GET OUT
         </button>
 
         {ready ? (
           !isLoggedIn ? (
-            <button type="button" onClick={() => go("/auth/login")} className="text-sm font-extrabold underline">
+            <button
+              type="button"
+              onClick={openLogin}
+              className="text-sm font-extrabold underline"
+            >
               LOGIN
             </button>
           ) : (
@@ -51,22 +64,28 @@ export default function SideMenu({ setShowMenu }) {
 
       <nav className="mt-6 text-4xl font-bold space-y-8">
         <div className="space-y-1">
-          <button onClick={() => go("/category/all")} className="block">ALL</button>
+          <button type="button" onClick={() => go("/category/all")} className="block">
+            ALL
+          </button>
         </div>
 
         <div className="space-y-1 pl-3">
-          <button onClick={() => go("/category/outer")} className="block">OUTER</button>
-          <button onClick={() => go("/category/top")} className="block">TOP</button>
-          <button onClick={() => go("/category/bottom")} className="block">BOTTOM</button>
-          <button onClick={() => go("/category/acc")} className="block">ACC</button>
-          <button onClick={() => go("/category/for-artist")} className="block">FOR-ARTIST</button>
+          <button type="button" onClick={() => go("/category/outer")} className="block">OUTER</button>
+          <button type="button" onClick={() => go("/category/top")} className="block">TOP</button>
+          <button type="button" onClick={() => go("/category/bottom")} className="block">BOTTOM</button>
+          <button type="button" onClick={() => go("/category/acc")} className="block">ACC</button>
+          <button type="button" onClick={() => go("/category/for-artist")} className="block">FOR-ARTIST</button>
         </div>
 
         <div className="space-y-1 text-2xl font-semibold">
-          <button onClick={() => go("/look")} className="block">LOOK</button>
-          <button onClick={() => go("/qna")} className="block">Q&A</button>
-          <button onClick={() => go("/mypage")} className="block">MY PAGE</button>
-          {isAdmin && <button onClick={() => go("/admin")} className="block">ADMIN</button>}
+          <button type="button" onClick={() => go("/look")} className="block">LOOK</button>
+          <button type="button" onClick={() => go("/qna")} className="block">Q&A</button>
+          <button type="button" onClick={() => go("/mypage")} className="block">MY PAGE</button>
+          {isAdmin && (
+            <button type="button" onClick={() => go("/admin")} className="block">
+              ADMIN
+            </button>
+          )}
         </div>
 
         <a

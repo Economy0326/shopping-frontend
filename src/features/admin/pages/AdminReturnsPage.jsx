@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminReturnsAPI } from "features/admin/api/adminReturns.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 function dt(s) {
   if (!s) return "-";
@@ -32,7 +33,7 @@ export default function AdminReturnsPage() {
       setRows(res?.data ?? []);
       setMeta(res?.meta ?? { page, size: meta.size, total: 0 });
     } catch (e) {
-      alert(getApiErrorMessage(e, "반품 목록 로드 실패"));
+      notify.error(getApiErrorMessage(e, "반품 목록 로드 실패"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -53,10 +54,10 @@ export default function AdminReturnsPage() {
     const memo = window.prompt("승인 메모(선택)") ?? "";
     try {
       await AdminReturnsAPI.approve(r.id, memo.trim() ? { memo } : undefined);
-      alert("승인 완료");
+      notify.success("승인 완료");
       await load(meta.page || 1);
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -65,10 +66,10 @@ export default function AdminReturnsPage() {
     if (!reason.trim()) return;
     try {
       await AdminReturnsAPI.reject(r.id, { reason: reason.trim() });
-      alert("거절 완료");
+      notify.success("거절 완료");
       await load(meta.page || 1);
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 

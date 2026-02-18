@@ -1,9 +1,11 @@
 // 취소 영수증
 // 새 창을 열고(head/body를 DOM API로 구성) -> print() 호출
+import { notify } from "shared/ui/notify";
+
 export function printCancellation(cancel) {
   const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) {
-    alert("팝업이 차단되었습니다. 브라우저 팝업 허용을 확인해주세요.");
+    notify.error("팝업이 차단되었습니다. 브라우저 팝업 허용을 확인해주세요.");
     return;
   }
 

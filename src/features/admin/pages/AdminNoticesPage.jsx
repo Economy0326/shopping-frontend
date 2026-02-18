@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"; 
 import { AdminNoticesAPI } from "features/admin/api/adminNotices.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 const btnBase =
   "uppercase font-extrabold tracking-tight text-sm md:text-base outline-none ring-0 [appearance:none] select-none";
@@ -92,7 +93,7 @@ export default function AdminNoticesPage() {
     } catch (e) {
       if (mySeq !== reqSeqRef.current) return;
 
-      alert(getApiErrorMessage(e, "공지 목록 로드 실패"));
+      notify.error(getApiErrorMessage(e, "공지 목록 로드 실패"));
       setRows([]);
       setSelectedId(null);
     } finally {
@@ -132,7 +133,7 @@ export default function AdminNoticesPage() {
   };
 
   const openEdit = () => {
-    if (!selected) return alert("왼쪽에서 공지를 선택하세요.");
+    if (!selected) return notify.info("왼쪽에서 공지를 선택해주세요.");
     setMode("edit");
     setCurrentId(selected.id);
     setForm({ title: selected.title ?? "", body: selected.body ?? "" });
@@ -140,8 +141,8 @@ export default function AdminNoticesPage() {
   };
 
   const save = async () => {
-    if (!form.title.trim()) return alert("제목을 입력해주세요.");
-    if (!form.body.trim()) return alert("내용을 입력해주세요.");
+    if (!form.title.trim()) return notify.info("제목을 입력해주세요.");
+    if (!form.body.trim()) return notify.info("내용을 입력해주세요.");
 
     try {
       setSaving(true);
@@ -153,7 +154,7 @@ export default function AdminNoticesPage() {
       setOpen(false);
       await load(1);
     } catch (e) {
-      alert(getApiErrorMessage(e, "저장 실패"));
+      notify.error(getApiErrorMessage(e, "저장 실패"));
     } finally {
       setSaving(false);
     }
@@ -166,7 +167,7 @@ export default function AdminNoticesPage() {
       await AdminNoticesAPI.remove(selected.id);
       await load(1);
     } catch (e) {
-      alert(getApiErrorMessage(e, "삭제 실패"));
+      notify.error(getApiErrorMessage(e, "삭제 실패"));
     }
   };
 

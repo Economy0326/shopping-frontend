@@ -100,7 +100,7 @@ export default function HeaderUnified({ showLogo = false }) {
             aria-label="메뉴 닫기"
             onClick={() => setShowMenu(false)}
           />
-          <SideMenu setShowMenu={setShowMenu} />
+          <SideMenu setShowMenu={setShowMenu} setShowLoginModal={setShowLogin} />
         </>
       )}
 

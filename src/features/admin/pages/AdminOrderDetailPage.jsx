@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
+import {
+  SHIPPING_CARRIER_OPTIONS,
+  ShippingCarriers,
+} from "shared/constants/shippingCarriers";
+import { notify } from "shared/ui/notify";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -37,7 +42,7 @@ export default function AdminOrderDetailPage() {
 
   // 액션 UI 상태
   const [trackingNo, setTrackingNo] = useState("");
-  const [carrier, setCarrier] = useState("KOREA_POST");
+  const [carrier, setCarrier] = useState(ShippingCarriers.KOREA_POST); // ✅ 통일
 
   const [refundMemo, setRefundMemo] = useState("");
   const [refundSaving, setRefundSaving] = useState(false);
@@ -49,14 +54,15 @@ export default function AdminOrderDetailPage() {
     try {
       setLoading(true);
       const res = await request(ADMIN.ORDERS.ID(id));
-      setOrder(res?.data ?? null);
+      const data = res?.data ?? null;
+      setOrder(data);
 
       // 초기값 채우기
-      const ship = res?.data?.shipping;
+      const ship = data?.shipping;
       setTrackingNo(ship?.trackingNo ?? "");
-      setCarrier(ship?.carrier ?? "KOREA_POST");
+      setCarrier(ship?.carrier ?? ShippingCarriers.KOREA_POST);
     } catch (e) {
-      alert(getApiErrorMessage(e, "주문 상세 로드 실패"));
+      notify.error(getApiErrorMessage(e, "주문 상세 로드 실패"));
     } finally {
       setLoading(false);
     }
@@ -82,8 +88,8 @@ export default function AdminOrderDetailPage() {
   const canRefund = ["CANCELED", "DELIVERED"].includes(status);
 
   const ret = order?.return ?? null;
-  const canReturnApprove = ret?.id && ret?.status === "REQUESTED";
-  const canReturnReject = ret?.id && ret?.status === "REQUESTED";
+  const canReturnApprove = !!(ret?.id && ret?.status === "REQUESTED");
+  const canReturnReject = !!(ret?.id && ret?.status === "REQUESTED");
 
   const depositConfirm = async () => {
     if (!canDepositConfirm) return;
@@ -91,30 +97,32 @@ export default function AdminOrderDetailPage() {
 
     try {
       await request(ADMIN.ORDERS.DEPOSIT(order.id), { method: "POST" });
-      alert("입금 확인 완료");
+      notify.success("입금 확인 완료");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
   const ship = async () => {
     if (!canShip) return;
-    const no = String(trackingNo ?? "").trim();
-    if (!no) return alert("송장번호를 입력하세요.");
 
+    const no = String(trackingNo ?? "").trim();
+    if (!no) return notify.error("송장번호를 입력하세요.");
+
+    //  carrier/송장 필수 전제이므로 confirm에 그대로 노출
     if (!window.confirm(`발송 등록할까요?\n택배사: ${carrier}\n송장: ${no}`))
       return;
 
     try {
       await request(ADMIN.ORDERS.SHIP(order.id), {
         method: "POST",
-        body: { carrier, trackingNo: no },
+        body: { carrier, trackingNo: no }, 
       });
-      alert("발송 등록 완료");
+      notify.success("발송 등록 완료");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -124,10 +132,10 @@ export default function AdminOrderDetailPage() {
 
     try {
       await request(ADMIN.ORDERS.DELIVER(order.id), { method: "POST" });
-      alert("배송완료 처리 완료");
+      notify.success("배송완료 처리 완료");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -135,11 +143,11 @@ export default function AdminOrderDetailPage() {
     if (!canRefund) return;
 
     const amount = order?.amounts?.grandTotal;
-    if (!amount) return alert("환불 금액을 계산할 수 없습니다.");
+    if (!amount) return notify.error("환불 금액을 계산할 수 없습니다.");
 
     // memo 필수
     const memo = String(refundMemo ?? "").trim();
-    if (!memo) return alert("환불 메모를 입력하세요.");
+    if (!memo) return notify.error("환불 메모를 입력하세요.");
 
     // confirm에 메모 표시
     if (
@@ -155,12 +163,12 @@ export default function AdminOrderDetailPage() {
         method: "POST",
         body: { amount, memo },
       });
-      alert("환불 로그 기록 완료");
+      notify.success("환불 로그 기록 완료");
       // 기록 후 메모 초기화
       setRefundMemo("");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     } finally {
       setRefundSaving(false);
     }
@@ -175,10 +183,10 @@ export default function AdminOrderDetailPage() {
         method: "POST",
         body: returnApproveMemo ? { memo: returnApproveMemo } : undefined,
       });
-      alert("반품 승인 완료");
+      notify.success("반품 승인 완료");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -186,7 +194,7 @@ export default function AdminOrderDetailPage() {
     if (!canReturnReject) return;
 
     const reason = String(returnRejectReason || "").trim();
-    if (!reason) return alert("거절 사유를 입력하세요.");
+    if (!reason) return notify.error("거절 사유를 입력하세요.");
     if (!window.confirm(`반품을 거절할까요?\n사유: ${reason}`)) return;
 
     try {
@@ -194,10 +202,10 @@ export default function AdminOrderDetailPage() {
         method: "POST",
         body: { reason },
       });
-      alert("반품 거절 완료");
+      notify.success("반품 거절 완료");
       await reload();
     } catch (e) {
-      alert(getApiErrorMessage(e));
+      notify.error(getApiErrorMessage(e));
     }
   };
 
@@ -366,7 +374,11 @@ export default function AdminOrderDetailPage() {
               className="border rounded px-2 py-2 text-sm"
               disabled={!canShip}
             >
-              <option value="KOREA_POST">KOREA_POST</option>
+              {SHIPPING_CARRIER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.value}
+                </option>
+              ))}
             </select>
 
             <input

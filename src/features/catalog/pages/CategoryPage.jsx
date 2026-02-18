@@ -1,5 +1,5 @@
 import { NavLink, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import ProductGrid from "ui/components/ProductGrid";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { PRODUCTS } from "shared/api/endpoints";
@@ -15,6 +15,22 @@ export default function CategoryPage() {
 
   const category = categoryName || "all";
 
+  const activeLinkRef = useRef(null);
+
+  // category 변경 시 중앙으로
+  useEffect(() => {
+    // 레이아웃/폰트 적용 후 스크롤되도록 RAF 2번
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        activeLinkRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      });
+    });
+  }, [category]);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -24,7 +40,7 @@ export default function CategoryPage() {
         category === "all" ? { excludeCategory: "look" } : { category };
 
       const res = await request(PRODUCTS.LIST, { params });
-      const data = pickData(res);          // data만 꺼냄
+      const data = pickData(res); // data만 꺼냄
       const rows = Array.isArray(data) ? data : [];
 
       setList(rows);
@@ -50,23 +66,42 @@ export default function CategoryPage() {
   return (
     <>
       <header>
-        <div className="flex justify-between gap-2 xl:gap-4 w-full xl:w-4/5 mx-auto p-5 bg-white">
-          {categories.map((cat) => (
-            <NavLink
-              key={cat}
-              to={`/category/${cat}`}
-              className={({ isActive }) =>
-                `text-2xl xl:text-5xl font-bold uppercase mb-5 px-3 py-2 transition-colors duration-200 ${
-                  isActive ? "text-white" : "text-red-500"
-                }`
-              }
-              style={({ isActive }) =>
-                isActive ? { WebkitTextStroke: "1px red" } : {}
-              }
-            >
-              {cat}
-            </NavLink>
-          ))}
+        {/* (모바일) 스냅/스크롤 + (sm+) 스크롤 없이 전체 노출 */}
+        <div className="relative w-full sm:w-[80%] mx-auto px-4 py-4 bg-white">
+          <div
+            className="
+              flex flex-nowrap items-center 
+              justify-start sm:justify-between
+              gap-3 sm:gap-6 xl:gap-10
+              overflow-x-auto sm:overflow-x-visible
+              scroll-smooth
+              [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+              [scroll-snap-type:x_mandatory] sm:[scroll-snap-type:none]
+            "
+          >
+            {categories.map((cat) => (
+              <NavLink
+                key={cat}
+                to={`/category/${cat}`}
+                ref={category === cat ? activeLinkRef : null}
+                className={({ isActive }) =>
+                  `shrink-0 text-2xl sm:text-3xl xl:text-5xl font-bold uppercase px-3 py-2 transition-colors duration-200
+                  [scroll-snap-align:center]
+                  ${isActive ? "text-white" : "text-red-500"}`
+                }
+                style={({ isActive }) =>
+                  isActive ? { WebkitTextStroke: "1px red" } : {}
+                }
+              >
+                {cat}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* 페이드 힌트(오른쪽) */}
+          <div className="sm:hidden pointer-events-none absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-white via-white/90 to-transparent" />
+          {/* 페이드 힌트(왼쪽) */}
+          <div className="sm:hidden pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-white via-white/90 to-transparent" />
         </div>
       </header>
 

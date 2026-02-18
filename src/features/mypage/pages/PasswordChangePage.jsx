@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AuthAPI } from "features/auth/api/auth.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 export default function PasswordChangePage() {
   const [sp] = useSearchParams();
@@ -42,7 +43,7 @@ export default function PasswordChangePage() {
       setDone(true);
       setForm({ current: "", next: "", confirm: "" });
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      notify.error(getApiErrorMessage(err));
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminQnaAPI } from "features/admin/api/adminQna.api";
 import { getApiErrorMessage } from "shared/api/request";
+import { notify } from "shared/ui/notify";
 
 const btnBase =
   "uppercase font-extrabold tracking-tight text-sm md:text-base outline-none ring-0 [appearance:none] select-none";
@@ -42,7 +43,7 @@ export default function AdminQnaPage() {
       setRows(res?.data ?? []);
       setMeta(res?.meta ?? { page, size: meta.size, total: 0 });
     } catch (e) {
-      alert(getApiErrorMessage(e, "문의 목록 로드 실패"));
+      notify.error(getApiErrorMessage(e, "문의 목록 로드 실패"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -57,7 +58,7 @@ export default function AdminQnaPage() {
       setDetail(d);
       setReplyBody("");
     } catch (e) {
-      alert(getApiErrorMessage(e, "문의 상세 로드 실패"));
+      notify.error(getApiErrorMessage(e, "문의 상세 로드 실패"));
       setDetail(null);
     } finally {
       setDetailLoading(false);
@@ -98,7 +99,7 @@ export default function AdminQnaPage() {
 
   const submitReply = async () => {
     if (!selectedId) return;
-    if (!replyBody.trim()) return alert("답변 내용을 입력해주세요.");
+    if (!replyBody.trim()) return notify.error("답변 내용을 입력해주세요.");
 
     try {
       setReplySaving(true);
@@ -115,7 +116,7 @@ export default function AdminQnaPage() {
 
       setReplyBody("");
     } catch (e) {
-      alert(getApiErrorMessage(e, "답변 등록 실패"));
+      notify.error(getApiErrorMessage(e, "답변 등록 실패"));
     } finally {
       setReplySaving(false);
     }

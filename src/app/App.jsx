@@ -7,6 +7,11 @@ import AppRoutes from "app/routes";
 import { useAuth } from "features/auth/context/AuthContext";
 import { CartProvider } from "features/cart/context/CartContext";
 
+import ScrollToTop from "app/components/ScrollToTop";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 function AppShell() {
   const { user, ready, setUser } = useAuth();
 
@@ -40,8 +45,10 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AppProviders>
         <AppShell />
+        <ToastContainer position="top-center" autoClose={2200} />
       </AppProviders>
     </BrowserRouter>
   );

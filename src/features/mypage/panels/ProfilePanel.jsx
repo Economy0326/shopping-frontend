@@ -3,6 +3,7 @@ import { useAuth } from "features/auth/context/AuthContext";
 import { Link } from "react-router-dom";
 import { getApiErrorMessage } from "shared/api/request";
 import { UsersAPI } from "features/users/api/users.api";
+import { notify } from "shared/ui/notify";
 
 export default function ProfilePanel() {
   const { user, setUser, ready } = useAuth();
@@ -47,7 +48,7 @@ export default function ProfilePanel() {
 
   const openPostcode = () => {
     if (!window?.daum?.Postcode) {
-      alert("주소검색 모듈 로딩중입니다. 잠시 후 다시 시도해주세요.");
+      notify.error("주소검색 모듈 로딩중입니다. 잠시 후 다시 시도해주세요.");
       return;
     }
 
@@ -90,9 +91,9 @@ export default function ProfilePanel() {
         setUser(updated);
       }
 
-      alert("저장되었습니다.");
+      notify.success("저장되었습니다.");
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      notify.error(getApiErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -169,7 +170,7 @@ export default function ProfilePanel() {
                 value={form.address.zip}
                 onChange={onAddressChange("zip")}
               />
-              <button type="button" onClick={openPostcode} className="border rounded px-3">
+              <button type="button" onClick={openPostcode} className="border rounded px-3 shrink-0">
                 주소검색
               </button>
             </div>
