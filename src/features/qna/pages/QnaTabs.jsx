@@ -20,19 +20,19 @@ export default function QnaTabs() {
 
   const tabBtn = (key) =>
     tab === key
-      ? "font-bold text-4xl text-red-500 border-b-2 border-red-500"
-      : "font-bold text-4xl text-red-500 hover:text-red-500";
+      ? "font-bold text-2xl sm:text-4xl text-red-500 border-b-2 border-red-500 whitespace-nowrap"
+      : "font-bold text-2xl sm:text-4xl text-red-500 hover:text-red-500 whitespace-nowrap";
 
   return (
     <main className="max-w-5xl mx-auto pb-16">
-      <nav className="sticky top-16 bg-white z-10">
+      <nav className="sticky top-16 bg-white z-10 px-4">
         <h1 className="mb-2 font-bold text-5xl text-red-500 text-center">
           QUESTION AND ANSWER
         </h1>
-        <ul className="flex gap-2 justify-center">
+        <ul className="flex flex-nowrap gap-2 justify-center whitespace-nowrap">
           <li>
             <button
-              className={`${tabBtn("notice")} outline-none ring-0 [appearance:none]`}
+              className={`${tabBtn("notice")} whitespace-nowrap outline-none ring-0 [appearance:none]`}
               onClick={() => setTab("notice")}
             >
               공지
@@ -41,7 +41,7 @@ export default function QnaTabs() {
           <li className="font-bold text-4xl text-red-500"> / </li>
           <li>
             <button
-              className={`${tabBtn("ask")} outline-none ring-0 [appearance:none]`}
+              className={`${tabBtn("ask")} whitespace-nowrap outline-none ring-0 [appearance:none]`}
               onClick={() => setTab("ask")}
             >
               무.물.보
@@ -50,7 +50,7 @@ export default function QnaTabs() {
           <li className="font-bold text-4xl text-red-500"> / </li>
           <li>
             <button
-              className={`${tabBtn("faq")} outline-none ring-0 [appearance:none]`}
+              className={`${tabBtn("faq")} whitespace-nowrap outline-none ring-0 [appearance:none]`}
               onClick={() => setTab("faq")}
             >
               자주묻는질문
