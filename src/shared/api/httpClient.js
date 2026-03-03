@@ -53,6 +53,7 @@ api.interceptors.response.use(
     // silentAuth는 헤더로 판별 (custom field 의존 X)
     const silentAuth = originalRequest?.headers?.["x-silent-auth"] === "1";
 
+    // emitAutRequired => 이미 emit 했거나, silentAuth인 경우, loggedOut인 경우는 emit 안함
     const emitAuthRequired = () => {
       if (silentAuth) return;
       if (alreadyEmitted) return;
