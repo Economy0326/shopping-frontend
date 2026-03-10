@@ -41,7 +41,7 @@ function SecretPage() {
 
           <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-8 px-2">
             <p className="text-3xl sm:text-6xl font-bold text-center leading-tight">
-              이걸 찾네 ㅋㅋ
+              이걸 찾네 ㅋㅋ test1234
             </p>
             <p className="text-lg sm:text-3xl font-bold text-center leading-tight">
               해킹당하신 거 아니에요!
