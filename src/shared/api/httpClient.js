@@ -62,8 +62,8 @@ api.interceptors.response.use(
       authEvents.emit("AUTH_REQUIRED", { silent: false, from: url });
     };
 
+    // 로그아웃 중에는 auth required 이벤트 emit 안함 (ex: refresh 실패 후)
     if (loggedOut) {
-      if (status === 401) emitAuthRequired();
       return Promise.reject(error);
     }
 
