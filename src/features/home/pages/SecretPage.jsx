@@ -21,9 +21,9 @@ function SecretPage() {
             bottom-6 sm:bottom-6
             bg-white text-black
             rounded-2xl border-2 border-red-500 shadow-2xl
-            w-auto sm:w-[720px]
+            w-auto sm:w-[600px]
             max-w-[calc(100vw-2rem)]
-            h-auto sm:h-[400px]
+            h-auto sm:h-[340px]
             min-h-[200px] sm:min-h-0
             max-h-[calc(100dvh-6rem)]
             p-4 sm:p-8
