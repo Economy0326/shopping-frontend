@@ -53,6 +53,13 @@ api.interceptors.response.use(
     // silentAuth는 헤더로 판별 (custom field 의존 X)
     const silentAuth = originalRequest?.headers?.["x-silent-auth"] === "1";
 
+    // 일반 401에서는 자동으로 리프레시 x
+    const isPublicAuthRoute =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/password-reset/request") ||
+      url.includes("/auth/password-reset/confirm");
+
     // emitAutRequired => 이미 emit 했거나, silentAuth인 경우, loggedOut인 경우는 emit 안함
     const emitAuthRequired = () => {
       if (silentAuth) return;
@@ -73,9 +80,10 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 일반 401에서는 자동으로 리프레시 x
     if (status === 401) {
-      emitAuthRequired();
+      if (!isPublicAuthRoute) {
+        emitAuthRequired();
+      }
     }
 
     return Promise.reject(error);

@@ -149,17 +149,16 @@ export default function AdminProductNew() {
     try {
       setSaving(true);
 
-      // 서버로 보낼 payload 구성
       const payload = {
         name: form.name.trim(),
         categorySlug: form.category,
         price: isLook ? 0 : toNumber(form.price, 0),
-        images: form.images, // url[]
+        images: form.images,
         description: form.description,
 
         sizeGuideMdUrl: form.sizeGuideMdUrl?.trim() || undefined,
         productInfoMdUrl: form.productInfoMdUrl?.trim() || undefined,
-        lookMdUrl: isLook ? (form.lookMdUrl?.trim() || undefined) : undefined,
+        lookMdUrl: isLook ? form.lookMdUrl?.trim() || undefined : undefined,
 
         optionGroups: form.optionGroups
           .map((g) => ({
@@ -172,7 +171,6 @@ export default function AdminProductNew() {
               }))
               .filter((o) => o.value.length > 0),
           }))
-          // 룩북은 기본적으로 옵션 없음
           .filter((g) => !isLook && g.options.length > 0),
       };
 
@@ -182,9 +180,11 @@ export default function AdminProductNew() {
 
       notify.success("상품이 등록되었습니다.");
 
-      // id가 있으면 상품 상세로 이동
-      if (id) nav(`/product/${id}`);
-      else nav(`/products`);
+      if (id) {
+        nav(isLook ? `/look/${id}` : `/product/${id}`);
+      } else {
+        nav(isLook ? `/look` : `/products`);
+      }
     } catch (e) {
       notify.error(getApiErrorMessage(e, "상품 등록 실패"));
     } finally {
@@ -364,13 +364,19 @@ export default function AdminProductNew() {
             </label>
           </div>
 
+          <p className="text-xs text-gray-500 mt-2">
+            {isLook
+              ? "LOOK 권장 규격: 세로형 2:3 비율, 900x1350 이상"
+              : "상품 권장 규격: 정사각형 1:1 비율, 1200x1200 이상"}
+          </p>
+
           {uploading && <p className="text-xs mt-2">업로드 중…</p>}
 
           {/* 업로드된 이미지 썸네일 표시 */}
           <div className="grid grid-cols-3 md:grid-cols-4 gap-2 mt-2">
             {form.images.map((u) => (
-              <div key={u} className="relative">
-                <img src={u} alt="" className="w-full h-24 object-cover rounded" />
+              <div key={u} className="relative aspect-square overflow-hidden rounded bg-gray-50">
+                <img src={u} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(u)}

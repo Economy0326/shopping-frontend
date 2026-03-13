@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminNoticesAPI } from "features/admin/api/adminNotices.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { notify } from "shared/ui/notify";
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 const btnBase =
   "uppercase font-extrabold tracking-tight text-sm md:text-base outline-none ring-0 [appearance:none] select-none";
@@ -58,6 +59,10 @@ export default function AdminNoticesPage() {
   const [currentId, setCurrentId] = useState(null);
   const [form, setForm] = useState({ title: "", body: "" });
   const [saving, setSaving] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const reqSeqRef = useRef(0);
   const debounceRef = useRef(null);
@@ -160,14 +165,26 @@ export default function AdminNoticesPage() {
     }
   };
 
-  const remove = async () => {
+  const openRemoveModal = () => {
     if (!selected) return;
-    if (!window.confirm("삭제할까요?")) return;
+    setDeleteTarget(selected);
+    setDeleteOpen(true);
+  };
+
+  const confirmRemove = async () => {
+    if (!deleteTarget) return;
+
     try {
-      await AdminNoticesAPI.remove(selected.id);
+      setDeleteLoading(true);
+      await AdminNoticesAPI.remove(deleteTarget.id);
+      notify.success("삭제되었습니다.");
       await load(1);
     } catch (e) {
       notify.error(getApiErrorMessage(e, "삭제 실패"));
+    } finally {
+      setDeleteLoading(false);
+      setDeleteOpen(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -188,7 +205,7 @@ export default function AdminNoticesPage() {
           <button className={`${btnBase} px-3 py-2 rounded-xl border`} onClick={openEdit} style={tapNone}>
             edit
           </button>
-          <button className={`${btnBase} px-3 py-2 rounded-xl border`} onClick={remove} style={tapNone}>
+          <button className={`${btnBase} px-3 py-2 rounded-xl border`} onClick={openRemoveModal} style={tapNone}>
             delete
           </button>
           <button className={`${btnBase} px-3 py-2 rounded-xl border`} onClick={() => load(1)} style={tapNone}>
@@ -204,7 +221,7 @@ export default function AdminNoticesPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        {/* ✅ 수정: 버튼은 유지(즉시 load) */}
+        {/* 버튼은 즉시 load */}
         <button className="px-3 py-2 border rounded" onClick={() => load(1)}>
           검색
         </button>
@@ -330,6 +347,20 @@ export default function AdminNoticesPage() {
           </div>
         </div>
       </Modal>
+      <ConfirmModal
+        open={deleteOpen}
+        title="삭제 확인"
+        message="삭제할까요?"
+        confirmText="삭제"
+        cancelText="취소"
+        loading={deleteLoading}
+        onConfirm={confirmRemove}
+        onCancel={() => {
+          if (deleteLoading) return;
+          setDeleteOpen(false);
+          setDeleteTarget(null);
+        }}
+      />
     </main>
   );
 }

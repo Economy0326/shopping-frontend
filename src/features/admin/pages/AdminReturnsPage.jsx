@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminReturnsAPI } from "features/admin/api/adminReturns.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { notify } from "shared/ui/notify";
+import PromptModal from "shared/ui/PromptModal";
 
 function dt(s) {
   if (!s) return "-";
@@ -19,6 +20,16 @@ export default function AdminReturnsPage() {
 
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
+
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveTarget, setApproveTarget] = useState(null);
+  const [approveMemo, setApproveMemo] = useState("");
+  const [approveLoading, setApproveLoading] = useState(false);
+
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const load = async (page = 1) => {
     try {
@@ -50,26 +61,65 @@ export default function AdminReturnsPage() {
     [meta]
   );
 
-  const approve = async (r) => {
-    const memo = window.prompt("승인 메모(선택)") ?? "";
+  const openApproveModal = (r) => {
+    if (!r?.id) return;
+    setApproveTarget(r);
+    setApproveMemo("");
+    setApproveOpen(true);
+  };
+
+  const confirmApprove = async () => {
+    if (!approveTarget) return;
+
     try {
-      await AdminReturnsAPI.approve(r.id, memo.trim() ? { memo } : undefined);
+      setApproveLoading(true);
+      const memo = String(approveMemo ?? "").trim();
+
+      await AdminReturnsAPI.approve(
+        approveTarget.id,
+        memo ? { memo } : undefined
+      );
+
       notify.success("승인 완료");
       await load(meta.page || 1);
     } catch (e) {
       notify.error(getApiErrorMessage(e));
+    } finally {
+      setApproveLoading(false);
+      setApproveOpen(false);
+      setApproveTarget(null);
+      setApproveMemo("");
     }
   };
 
-  const reject = async (r) => {
-    const reason = window.prompt("거절 사유(필수)") ?? "";
-    if (!reason.trim()) return;
+  const openRejectModal = (r) => {
+    if (!r?.id) return;
+    setRejectTarget(r);
+    setRejectReason("");
+    setRejectOpen(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTarget) return;
+
+    const reason = String(rejectReason ?? "").trim();
+    if (!reason) {
+      notify.error("거절 사유를 입력하세요.");
+      return;
+    }
+
     try {
-      await AdminReturnsAPI.reject(r.id, { reason: reason.trim() });
+      setRejectLoading(true);
+      await AdminReturnsAPI.reject(rejectTarget.id, { reason });
       notify.success("거절 완료");
       await load(meta.page || 1);
     } catch (e) {
       notify.error(getApiErrorMessage(e));
+    } finally {
+      setRejectLoading(false);
+      setRejectOpen(false);
+      setRejectTarget(null);
+      setRejectReason("");
     }
   };
 
@@ -143,7 +193,7 @@ export default function AdminReturnsPage() {
                     <div className="flex gap-2">
                       <button
                         disabled={!canAction}
-                        onClick={() => approve(r)}
+                        onClick={() => openApproveModal(r)}
                         className={`px-3 py-1 rounded border ${
                           canAction ? "" : "opacity-40 cursor-not-allowed"
                         }`}
@@ -152,7 +202,7 @@ export default function AdminReturnsPage() {
                       </button>
                       <button
                         disabled={!canAction}
-                        onClick={() => reject(r)}
+                        onClick={() => openRejectModal(r)}
                         className={`px-3 py-1 rounded border ${
                           canAction ? "" : "opacity-40 cursor-not-allowed"
                         }`}
@@ -184,6 +234,47 @@ export default function AdminReturnsPage() {
           다음 페이지
         </button>
       )}
+      <PromptModal
+        open={approveOpen}
+        title="반품 승인"
+        message="승인 메모를 입력하세요. (선택)"
+        value={approveMemo}
+        onChange={setApproveMemo}
+        placeholder="승인 메모(선택)"
+        confirmText="승인"
+        cancelText="취소"
+        loading={approveLoading}
+        required={false}
+        multiline
+        onConfirm={confirmApprove}
+        onCancel={() => {
+          if (approveLoading) return;
+          setApproveOpen(false);
+          setApproveTarget(null);
+          setApproveMemo("");
+        }}
+      />
+
+      <PromptModal
+        open={rejectOpen}
+        title="반품 거절"
+        message="거절 사유를 입력하세요. (필수)"
+        value={rejectReason}
+        onChange={setRejectReason}
+        placeholder="거절 사유(필수)"
+        confirmText="거절"
+        cancelText="취소"
+        loading={rejectLoading}
+        required
+        multiline
+        onConfirm={confirmReject}
+        onCancel={() => {
+          if (rejectLoading) return;
+          setRejectOpen(false);
+          setRejectTarget(null);
+          setRejectReason("");
+        }}
+      />
     </main>
   );
 }

@@ -1,4 +1,4 @@
-// 상품 상세페이지 + 룩북 상세페이지 (value 기반)
+// 상품 상세페이지
 // optionGroups.value(string) + stock 기반
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, NavLink } from "react-router-dom";
@@ -61,11 +61,8 @@ export default function ProductPage() {
   const [returnsMd, setReturnsMd] = useState("교환/환불 안내를 준비 중입니다.");
   const [loadingInfo, setLoadingInfo] = useState(true);
 
-  // 룩북 md
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lookMd, setLookMd] = useState("");
 
-  // 로딩/에러
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
@@ -85,6 +82,12 @@ export default function ProductPage() {
         const detail = pickData(res);
 
         if (!detail) throw new Error("상품 데이터가 비어있습니다.");
+
+        // product 전용 페이지이므로 look 카테고리 진입 차단
+        if (detail.categorySlug === "look") {
+          throw new Error("look 항목은 /look/:id 경로를 사용하세요.");
+        }
+
         if (alive) {
           setProduct(detail);
 
@@ -111,12 +114,9 @@ export default function ProductPage() {
   }, [id]);
 
   const images = product?.images ?? [];
-  const isLook = product?.categorySlug === "look";
-
-  const lookMdUrl = product?.lookMdUrl ?? "";
 
   const rawPrice = product?.price;
-  const hasPrice = typeof rawPrice === "number" && !isLook;
+  const hasPrice = typeof rawPrice === "number";
   const formattedPrice = hasPrice ? rawPrice.toLocaleString() : null;
 
   // opitionGroups: size, color
@@ -139,9 +139,8 @@ export default function ProductPage() {
   });
 
   // active 중앙 자동 스크롤
-  const navWrapRef = useRef(null); 
-  const activeLinkRef = useRef(null); 
-  const currentCat = product?.categorySlug || "all"; 
+  const activeLinkRef = useRef(null);
+  const currentCat = product?.categorySlug || "all";
 
   useEffect(() => {
     // 레이아웃/폰트 적용 후 스크롤되도록 RAF 2번
@@ -161,6 +160,7 @@ export default function ProductPage() {
     if (images.length <= 1) return;
     setCurrentIndex((i) => (i - 1 + images.length) % images.length);
   };
+
   const goNextImage = () => {
     if (images.length <= 1) return;
     setCurrentIndex((i) => (i + 1) % images.length);
@@ -193,8 +193,6 @@ export default function ProductPage() {
     swipeRef.current.active = false;
 
     const { dx, dy } = swipeRef.current;
-
-    // “가로 스와이프 의도”일 때만 넘기기
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
 
@@ -218,12 +216,9 @@ export default function ProductPage() {
   // - 하나만 선택되면 해당 옵션 stock
   // - 최종 재고 검증은 주문 생성 시 백엔드가 수행
   const selectedAvailableStock = useMemo(() => {
-    if (isLook) return Infinity;
-
     const hasSize = sizeOptions.length > 0;
     const hasColor = colorOptions.length > 0;
 
-    // selectedSzeValue/selectedColorValue -> value 기반 선택 상태
     const sizePicked = hasSize ? selectedSizeValue : "";
     const colorPicked = hasColor ? selectedColorValue : "";
 
@@ -237,14 +232,12 @@ export default function ProductPage() {
     }
 
     if (hasColor && colorPicked) {
-      const c = getStockOfValue(colorGroup, colorPicked);
-      return c;
+      return getStockOfValue(colorGroup, colorPicked);
     }
 
     // 아무것도 선택 안 했으면 제한 없음(버튼 활성화 판단은 validate에서 함)
     return Infinity;
   }, [
-    isLook,
     sizeGroup,
     colorGroup,
     sizeOptions.length,
@@ -260,7 +253,6 @@ export default function ProductPage() {
    * - color 버튼: colorOption.stock > 0 이면 가능
    */
   const isOptionAvailable = (groupKey, value) => {
-    if (isLook) return true;
     const group = groupKey === "size" ? sizeGroup : colorGroup;
     const stock = getStockOfValue(group, value);
     return stock > 0;
@@ -327,30 +319,6 @@ export default function ProductPage() {
     };
   }, [id, product]);
 
-  useEffect(() => {
-    let alive = true;
-
-    async function loadMd() {
-      if (isLook && lookMdUrl) {
-        try {
-          const res = await fetch(lookMdUrl);
-          if (!res.ok) throw new Error("md fetch fail");
-          const txt = await res.text();
-          if (alive) setLookMd(txt);
-        } catch {
-          if (alive) setLookMd("");
-        }
-      } else {
-        if (alive) setLookMd("");
-      }
-    }
-
-    loadMd();
-    return () => {
-      alive = false;
-    };
-  }, [isLook, lookMdUrl]);
-
   if (loading) {
     return (
       <main className="max-w-5xl mx-auto p-6">
@@ -372,8 +340,6 @@ export default function ProductPage() {
 
   // 선택 검증 함수 (장바구니 담기/바로구매 전에 호출)
   const validateSelection = () => {
-    if (isLook) return true;
-
     const needsSize = sizeOptions.length > 0;
     const needsColor = colorOptions.length > 0;
 
@@ -403,16 +369,14 @@ export default function ProductPage() {
     if (!validateSelection()) return false;
 
     const optionValues = {};
-    if (sizeOptions.length > 0 && selectedSizeValue)
+    if (sizeOptions.length > 0 && selectedSizeValue) {
       optionValues.size = selectedSizeValue;
-    if (colorOptions.length > 0 && selectedColorValue)
+    }
+    if (colorOptions.length > 0 && selectedColorValue) {
       optionValues.color = selectedColorValue;
+    }
 
-    // priceDelta: 옵션 조합 추가금이 없으면 0
-    // (추가금 정책이 생기면 여기서 계산해서 넣으면 Cart/Checkout 총액이 자동 반영됨)
-    const priceDelta = 0;
-
-    addToCart(product, Math.max(1, qty), { optionValues, priceDelta });
+    addToCart(product, Math.max(1, qty), { optionValues, priceDelta: 0 });
     return true;
   };
 
@@ -433,75 +397,51 @@ export default function ProductPage() {
 
   // 버튼 비활성(옵션 미선택 or 품절 or 재고보다 qty 큼)
   const buyDisabled =
-    (!isLook && sizeOptions.length > 0 && !selectedSizeValue) ||
-    (!isLook && colorOptions.length > 0 && !selectedColorValue) ||
-    (!isLook && Number(selectedAvailableStock) <= 0) ||
-    (!isLook && qty > Number(selectedAvailableStock));
+    (sizeOptions.length > 0 && !selectedSizeValue) ||
+    (colorOptions.length > 0 && !selectedColorValue) ||
+    Number(selectedAvailableStock) <= 0 ||
+    qty > Number(selectedAvailableStock);
 
   return (
     <>
       {/* 카테고리/탭 */}
       <header>
-        {isLook ? (
+        {/* product 카테고리 탭 */}
+        <div className="relative w-full sm:w-[80%] mx-auto p-5 bg-white">
           <nav
+            className="
+              flex flex-nowrap items-center
+              justify-start
+              gap-3 sm:gap-6 xl:gap-10
+              overflow-x-auto
+              scroll-smooth
+              [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+              [scroll-snap-type:x_mandatory]
+            "
             aria-label="카테고리"
-            className="flex justify-center w-full md:w-[70%] mx-auto p-5 bg-white"
           >
-            <NavLink
-              to="/look"
-              className={({ isActive }) =>
-                `relative text-4xl xl:text-5xl font-bold -translate-x-1 uppercase px-2 py-1 transition-colors duration-200 ${
-                  isActive ? "text-white" : "text-red-500"
-                }`
-              }
-              style={({ isActive }) =>
-                isActive ? { WebkitTextStroke: "1px red" } : {}
-              }
-            >
-              look
-            </NavLink>
+            {categories.map((cat) => (
+              <NavLink
+                key={cat}
+                to={`/category/${cat}`}
+                ref={currentCat === cat ? activeLinkRef : null}
+                className={({ isActive }) =>
+                  `shrink-0 text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200
+                  [scroll-snap-align:center]
+                  ${isActive ? "text-white" : "text-red-500"}`
+                }
+                style={({ isActive }) =>
+                  isActive ? { WebkitTextStroke: "1px red" } : {}
+                }
+              >
+                {cat}
+              </NavLink>
+            ))}
           </nav>
-        ) : (
-          // (모바일) 스냅/스크롤 + 페이드 (sm+) 스크롤 없이 전체 노출
-          <div className="relative w-full sm:w-[80%] mx-auto p-5 bg-white">
-            <nav
-              ref={navWrapRef}
-              className="
-                flex flex-nowrap items-center 
-                justify-start sm:justify-between
-                gap-3 sm:gap-6 xl:gap-10
-                overflow-x-auto sm:overflow-x-visible
-                scroll-smooth
-                [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-                [scroll-snap-type:x_mandatory] sm:[scroll-snap-type:none]
-              "
-              aria-label="카테고리"
-            >
-              {categories.map((cat) => (
-                <NavLink
-                  key={cat}
-                  to={`/category/${cat}`}
-                  ref={currentCat === cat ? activeLinkRef : null}
-                  className={({ isActive }) =>
-                    `shrink-0 sm:shrink text-2xl xl:text-5xl font-bold uppercase mb-6 px-2 py-1 transition-colors duration-200
-                    [scroll-snap-align:center]
-                    ${isActive ? "text-white" : "text-red-500"}`
-                  }
-                  style={({ isActive }) =>
-                    isActive ? { WebkitTextStroke: "1px red" } : {}
-                  }
-                >
-                  {cat}
-                </NavLink>
-              ))}
-            </nav>
 
-            {/* 페이드 힌트(오른쪽) */}
-            <div className="sm:hidden pointer-events-none absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-white via-white/90 to-transparent" />
-            {/* 페이드 힌트(왼쪽) */}
-            <div className="sm:hidden pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-white via-white/90 to-transparent" />
-          </div>
-        )}
+          <div className="sm:hidden pointer-events-none absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-white via-white/90 to-transparent" />
+          <div className="sm:hidden pointer-events-none absolute left-0 top-0 h-full w-16 bg-gradient-to-r from-white via-white/90 to-transparent" />
+        </div>
       </header>
 
       {/* 상세 */}
@@ -515,11 +455,7 @@ export default function ProductPage() {
                 <button
                   type="button"
                   onClick={goPrevImage}
-                  className="
-                    hidden sm:grid
-                    w-12 h-24 place-items-center translate-x-2
-                    hover:shadow-lg hover:bg-red-50 active:scale-95
-                  "
+                  className="hidden sm:grid w-12 h-24 place-items-center translate-x-2 hover:shadow-lg hover:bg-red-50 active:scale-95"
                   aria-label="이전 이미지"
                 >
                   <TriangleArrow className="w-12 h-24 text-red-500" direction="left" />
@@ -535,12 +471,14 @@ export default function ProductPage() {
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
               >
-                <img
-                  src={images[currentIndex]?.url ?? images[currentIndex]}
-                  alt={`${product?.name || "product"} ${currentIndex + 1}`}
-                  className="w-full h-auto object-cover rounded-2xl"
-                  draggable={false} // 모바일 드래그/롱프레스 느낌 완화
-                />
+                <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-gray-50">
+                  <img
+                    src={images[currentIndex]?.url ?? images[currentIndex]}
+                    alt={`${product?.name || "product"} ${currentIndex + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    draggable={false}
+                  />
+                </div>
 
                 {/* MOBILE DOT INDICATOR (sm 미만에서만) */}
                 {images.length > 1 && (
@@ -566,11 +504,7 @@ export default function ProductPage() {
                 <button
                   type="button"
                   onClick={goNextImage}
-                  className="
-                    hidden sm:grid
-                    w-12 h-24 place-items-center -translate-x-2
-                    hover:shadow-lg hover:bg-red-50 active:scale-95
-                  "
+                  className="hidden sm:grid w-12 h-24 place-items-center -translate-x-2 hover:shadow-lg hover:bg-red-50 active:scale-95"
                   aria-label="다음 이미지"
                 >
                   <TriangleArrow className="w-12 h-24 text-red-500" direction="right" />
@@ -585,9 +519,7 @@ export default function ProductPage() {
         {/* 정보 + 옵션 + 구매 + 설명 */}
         <section className="flex flex-col gap-8">
           <div className="grid gap-2">
-            <h1 className="text-4xl font-bold">
-              {isLook ? "NO THINKING AREA" : product?.name}
-            </h1>
+            <h1 className="text-4xl font-bold">{product?.name}</h1>
             {hasPrice && (
               <div className="text-xl font-bold text-black">
                 PRICE {formattedPrice} WON
@@ -595,252 +527,229 @@ export default function ProductPage() {
             )}
           </div>
 
-          {!isLook && (
-            <>
-              {/* 사이즈/색상(value+stock) */}
-              <div className="grid gap-6">
-                {sizeOptions.length > 0 && (
-                  <div role="radiogroup" className="flex flex-wrap gap-1">
-                    {sizeOptions.map((opt) => {
-                      const val = String(opt?.value ?? "");
-                      const isSelected = selectedSizeValue === val;
-                      const soldOut = !isOptionAvailable("size", val);
+          <div className="grid gap-6">
+            {sizeOptions.length > 0 && (
+              <div role="radiogroup" className="flex flex-wrap gap-1">
+                {sizeOptions.map((opt) => {
+                  const val = String(opt?.value ?? "");
+                  const isSelected = selectedSizeValue === val;
+                  const soldOut = !isOptionAvailable("size", val);
 
-                      return (
-                        <button
-                          key={`size-${val}`}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          aria-label={`사이즈 ${val}`}
-                          onClick={() => setSelectedSizeValue(val)}
-                          disabled={soldOut}
-                          className={[
-                            "w-9 h-9 rounded-md border-2 flex items-center justify-center font-bold transition-colors select-none text-sm outline-none ring-0",
-                            "border-red-500",
-                            soldOut
-                              ? "opacity-30 cursor-not-allowed bg-white text-red-600"
-                              : isSelected
-                              ? "bg-red-500 text-white"
-                              : "bg-white text-red-600",
-                          ].join(" ")}
-                          title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
-                        >
-                          {val}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {colorOptions.length > 0 && (
-                  <div role="radiogroup" className="flex flex-wrap gap-1">
-                    {colorOptions.map((opt) => {
-                      const val = String(opt?.value ?? "");
-                      const isSelected = selectedColorValue === val;
-                      const soldOut = !isOptionAvailable("color", val);
-
-                      const bgClass =
-                        ["white", "black"].includes(val.toLowerCase())
-                          ? val.toLowerCase() === "white"
-                            ? "bg-white"
-                            : "bg-black"
-                          : "";
-                      const inlineStyle = bgClass ? undefined : { backgroundColor: val };
-
-                      return (
-                        <button
-                          key={`color-${val}`}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          aria-label={`색상 ${val}`}
-                          onClick={() => setSelectedColorValue(val)}
-                          disabled={soldOut}
-                          className={[
-                            "w-9 h-9 rounded-md border-2 flex items-center justify-center transition select-none outline-none ring-0",
-                            "border-red-500",
-                            bgClass,
-                            soldOut ? "opacity-30 cursor-not-allowed" : "",
-                          ].join(" ")}
-                          style={inlineStyle}
-                          title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
-                        >
-                          {isSelected && !soldOut && (
-                            <span className="w-3 h-3 rounded-full bg-red-500" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                  return (
+                    <button
+                      key={`size-${val}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-label={`사이즈 ${val}`}
+                      onClick={() => setSelectedSizeValue(val)}
+                      disabled={soldOut}
+                      className={[
+                        "w-9 h-9 rounded-md border-2 flex items-center justify-center font-bold transition-colors select-none text-sm outline-none ring-0",
+                        "border-red-500",
+                        soldOut
+                          ? "opacity-30 cursor-not-allowed bg-white text-red-600"
+                          : isSelected
+                          ? "bg-red-500 text-white"
+                          : "bg-white text-red-600",
+                      ].join(" ")}
+                      title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
+                    >
+                      {val}
+                    </button>
+                  );
+                })}
               </div>
+            )}
 
-              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+            {colorOptions.length > 0 && (
+              <div role="radiogroup" className="flex flex-wrap gap-1">
+                {colorOptions.map((opt) => {
+                  const val = String(opt?.value ?? "");
+                  const isSelected = selectedColorValue === val;
+                  const soldOut = !isOptionAvailable("color", val);
 
-              {/* 모바일 전용 컨트롤 */}
-              <div className="sm:hidden grid gap-3">
-                {/* 수량 */}
-                <div className="flex items-center justify-start">
-                  <button
-                    type="button"
-                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    value={qty}
-                    onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
-                              [&::-webkit-inner-spin-button]:appearance-none
-                              [&::-webkit-outer-spin-button]:appearance-none
-                              [-moz-appearance:textfield]"
-                  />
-                  <button
-                    type="button"
-                    className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => q + 1)}
-                  >
-                    +
-                  </button>
-                </div>
+                  const bgClass =
+                    ["white", "black"].includes(val.toLowerCase())
+                      ? val.toLowerCase() === "white"
+                        ? "bg-white"
+                        : "bg-black"
+                      : "";
+                  const inlineStyle = bgClass ? undefined : { backgroundColor: val };
 
-                {/* BUY + 장바구니 */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleBuyNow}
-                    disabled={buyDisabled}
-                    aria-disabled={buyDisabled}
-                    className="flex-1 h-10 bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    BUY!
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAddOnly}
-                    disabled={buyDisabled}
-                    aria-disabled={buyDisabled}
-                    aria-label="장바구니에 담기"
-                    className="w-8 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    <img src="/mood/bag.png" alt="bag" className="w-5 h-8" />
-                  </button>
-                </div>
+                  return (
+                    <button
+                      key={`color-${val}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-label={`색상 ${val}`}
+                      onClick={() => setSelectedColorValue(val)}
+                      disabled={soldOut}
+                      className={[
+                        "w-9 h-9 rounded-md border-2 flex items-center justify-center transition select-none outline-none ring-0",
+                        "border-red-500",
+                        bgClass,
+                        soldOut ? "opacity-30 cursor-not-allowed" : "",
+                      ].join(" ")}
+                      style={inlineStyle}
+                      title={soldOut ? "품절" : `${val} (재고 ${Number(opt?.stock ?? 0)})`}
+                    >
+                      {isSelected && !soldOut && (
+                        <span className="w-3 h-3 rounded-full bg-red-500" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            </>
-          )}
+            )}
+          </div>
 
-          {/* sm 이상(모바일보다 큰 화면)에서만 기존 가로 줄 유지 */}
-          {!isLook && (
-            <div className="hidden sm:flex w-full h-10 items-center gap-2">
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+
+          {/* 모바일 전용 컨트롤 */}
+          <div className="sm:hidden grid gap-3">
+            {/* 수량 */}
+            <div className="flex items-center justify-start">
+              <button
+                type="button"
+                className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
+                          [&::-webkit-inner-spin-button]:appearance-none
+                          [&::-webkit-outer-spin-button]:appearance-none
+                          [-moz-appearance:textfield]"
+              />
+              <button
+                type="button"
+                className="w-10 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                onClick={() => setQty((q) => q + 1)}
+              >
+                +
+              </button>
+            </div>
+
+            {/* BUY + 장바구니 */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleBuyNow}
                 disabled={buyDisabled}
                 aria-disabled={buyDisabled}
-                className="flex-[0_0_80%] h-full bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 h-10 bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 BUY!
               </button>
 
-              <div className="flex-[0_0_20%] h-full flex items-center justify-end gap-2">
-                <div className="flex">
-                  <button
-                    type="button"
-                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    value={qty}
-                    onChange={(e) =>
-                      setQty(Math.max(1, Number(e.target.value) || 1))
-                    }
-                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
-                              [&::-webkit-inner-spin-button]:appearance-none
-                              [&::-webkit-outer-spin-button]:appearance-none
-                              [-moz-appearance:textfield]"
-                  />
-                  <button
-                    type="button"
-                    className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
-                    onClick={() => setQty((q) => q + 1)}
-                  >
-                    +
-                  </button>
-                </div>
+              <button
+                type="button"
+                onClick={handleAddOnly}
+                disabled={buyDisabled}
+                aria-disabled={buyDisabled}
+                aria-label="장바구니에 담기"
+                className="w-8 h-10 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                <img src="/mood/bag.png" alt="bag" className="w-5 h-8" />
+              </button>
+            </div>
+          </div>
 
+          {/* sm 이상(모바일보다 큰 화면)에서만 기존 가로 줄 유지 */}
+          <div className="hidden sm:flex w-full h-10 items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBuyNow}
+              disabled={buyDisabled}
+              aria-disabled={buyDisabled}
+              className="flex-[0_0_80%] h-full bg-red-500 rounded font-bold text-2xl text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              BUY!
+            </button>
+
+            <div className="flex-[0_0_20%] h-full flex items-center justify-end gap-2">
+              <div className="flex">
                 <button
                   type="button"
-                  onClick={handleAddOnly}
-                  disabled={buyDisabled}
-                  aria-disabled={buyDisabled}
-                  aria-label="장바구니에 담기"
-                  className="w-7 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
                 >
-                  <img
-                    src="/mood/bag.png"
-                    alt="bag"
-                    className="inline-flex items-center justify-center w-4 h-7"
-                  />
+                  -
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  value={qty}
+                  onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded text-center appearance-none
+                            [&::-webkit-inner-spin-button]:appearance-none
+                            [&::-webkit-outer-spin-button]:appearance-none
+                            [-moz-appearance:textfield]"
+                />
+                <button
+                  type="button"
+                  className="w-8 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50"
+                  onClick={() => setQty((q) => q + 1)}
+                >
+                  +
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={handleAddOnly}
+                disabled={buyDisabled}
+                aria-disabled={buyDisabled}
+                aria-label="장바구니에 담기"
+                className="w-7 h-8 border-4 border-red-500 text-red-500 font-bold rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <img
+                  src="/mood/bag.png"
+                  alt="bag"
+                  className="inline-flex items-center justify-center w-4 h-7"
+                />
+              </button>
             </div>
-          )}
+          </div>
 
           {/* 설명 */}
-          {isLook ? (
-            <section className="text-sm leading-7 text-black/90 max-w-none">
-              {lookMd ? (
-                <div className="whitespace-pre-line">{lookMd.trim()}</div>
-              ) : (
-                <p className="whitespace-pre-line">
-                  {product?.description ?? "룩 설명을 준비 중입니다."}
-                </p>
-              )}
-            </section>
-          ) : (
-            <div>
-              <div>
-                {[
-                  { key: "size", title: "SIZE GUIDE", content: sizeGuideMd },
-                  { key: "info", title: "PRODUCT INFO", content: productInfoMd },
-                  { key: "return", title: "RETURN/EXCHANGE", content: returnsMd },
-                ].map(({ key, title, content }) => (
-                  <div key={key}>
-                    <button
-                      onClick={() => toggle(key)}
-                      aria-expanded={open[key]}
-                      aria-controls={`sec-${key}`}
-                      className="relative w-full flex justify-start font-bold py-2"
-                    >
-                      <span className="pr-10">{title}</span>
-                      <span
-                        className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
-                          open[key] ? "rotate-180" : ""
-                        }`}
-                      >
-                        ▼
-                      </span>
-                    </button>
-                    {open[key] && (
-                      <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
-                        {loadingInfo ? "로딩 중…" : (content || "준비 중입니다.")}
-                      </div>
-                    )}
+          <div>
+            {[
+              { key: "size", title: "SIZE GUIDE", content: sizeGuideMd },
+              { key: "info", title: "PRODUCT INFO", content: productInfoMd },
+              { key: "return", title: "RETURN/EXCHANGE", content: returnsMd },
+            ].map(({ key, title, content }) => (
+              <div key={key}>
+                <button
+                  onClick={() => toggle(key)}
+                  aria-expanded={open[key]}
+                  aria-controls={`sec-${key}`}
+                  className="relative w-full flex justify-start font-bold py-2"
+                >
+                  <span className="pr-10">{title}</span>
+                  <span
+                    className={`absolute left-1/2 transform -translate-x-1/2 transition-transform ${
+                      open[key] ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▼
+                  </span>
+                </button>
+                {open[key] && (
+                  <div id={`sec-${key}`} className="text-sm text-black px-2 pb-2">
+                    {loadingInfo ? "로딩 중…" : (content || "준비 중입니다.")}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </section>
 
         {added && (

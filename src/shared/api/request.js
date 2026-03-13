@@ -71,6 +71,22 @@ export function mapCheckoutErrorToUx(code, message, details) {
         action: { type: "go_cart", label: "장바구니로" },
       };
 
+    case "INVALID_OPTION_COMBINATION":
+      return {
+        title: "옵션을 다시 확인해주세요",
+        message:
+          message || "선택한 옵션 조합이 존재하지 않습니다. 옵션을 다시 선택해주세요.",
+        action: { type: "go_cart", label: "장바구니로" },
+      };
+
+    case "INVALID_ORDER_STATUS":
+      return {
+        title: "현재 상태에서는 처리할 수 없습니다",
+        message:
+          message || "현재 주문 상태에서는 이 작업을 진행할 수 없습니다.",
+        action: { type: "close", label: "확인" },
+      };
+
     case "VALIDATION_ERROR":
       return {
         title: "입력값이 올바르지 않습니다",
@@ -78,6 +94,14 @@ export function mapCheckoutErrorToUx(code, message, details) {
         // details.errors 가 배열일 수 있음 (너 필터에서 그렇게 내려줌)
         fieldErrors: Array.isArray(details?.errors) ? details.errors : [],
         action: { type: "close", label: "확인" },
+      };
+
+    case "INTERNAL_ERROR":
+      return {
+        title: "일시적인 오류가 발생했습니다",
+        message:
+          message || "요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        action: { type: "retry", label: "다시 시도" },
       };
 
     default:

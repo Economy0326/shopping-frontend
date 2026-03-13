@@ -4,6 +4,7 @@ import { useAuth } from "features/auth/context/AuthContext";
 import { QnaAPI } from "features/qna/api/qna.api";
 import AskDrawer from "features/qna/components/AskDrawer";
 import { notify } from "shared/ui/notify";
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 function getApiErrorMessage(e) {
   return (
@@ -38,6 +39,10 @@ export default function AskListPage() {
   const [items, setItems] = useState([]);
   const [openId, setOpenId] = useState(null);
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const refresh = async () => {
     try {
       setLoading(true);
@@ -56,15 +61,20 @@ export default function AskListPage() {
     }
   };
 
-  const removeAsk = async (id) => {
+  const openRemoveModal = (id) => {
     if (!id) return;
-    if (!window.confirm("이 문의를 삭제할까요?")) return;
+    setDeleteTargetId(id);
+    setDeleteOpen(true);
+  };
+
+  const confirmRemoveAsk = async () => {
+    if (!deleteTargetId) return;
 
     try {
-      setLoading(true);
-      await QnaAPI.remove(id);
+      setDeleteLoading(true);
+      await QnaAPI.remove(deleteTargetId);
 
-      if (String(openId) === String(id)) setOpenId(null);
+      if (String(openId) === String(deleteTargetId)) setOpenId(null);
       await refresh();
     } catch (e) {
       const status = e && e.response && e.response.status;
@@ -72,7 +82,9 @@ export default function AskListPage() {
       else if (status === 403) notify.error("삭제 권한이 없습니다.");
       else notify.error(getApiErrorMessage(e));
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
+      setDeleteOpen(false);
+      setDeleteTargetId(null);
     }
   };
 
@@ -165,8 +177,8 @@ export default function AskListPage() {
                 </span>
 
                 <button
-                  onClick={() => removeAsk(it.id)}
-                  disabled={loading}
+                  onClick={() => openRemoveModal(it.id)}
+                  disabled={loading || deleteLoading}
                   style={{
                     padding: "6px 10px",
                     borderRadius: 8,
@@ -189,6 +201,20 @@ export default function AskListPage() {
       )}
 
       <AskDrawer askId={openId} isAdmin={isAdmin} onClose={() => setOpenId(null)} onChanged={refresh} />
+      <ConfirmModal
+        open={deleteOpen}
+        title="문의 삭제"
+        message="이 문의를 삭제할까요?"
+        confirmText="삭제"
+        cancelText="취소"
+        loading={deleteLoading}
+        onConfirm={confirmRemoveAsk}
+        onCancel={() => {
+          if (deleteLoading) return;
+          setDeleteOpen(false);
+          setDeleteTargetId(null);
+        }}
+      />
     </div>
   );
 }

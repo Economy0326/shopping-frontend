@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { QnaAPI } from "features/qna/api/qna.api";
 import { useAuth } from "features/auth/context/AuthContext"; // ✅ 수정: ready/user 확인용
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 function getApiErrorMessage(e) {
   return (
@@ -25,6 +26,9 @@ export default function AskDrawer({ askId, isAdmin, onClose, onChanged }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [detail, setDetail] = useState(null);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const headerTitle = useMemo(
     () => (isAdmin ? "운영자 문의 상세" : "내 문의 상세"),
@@ -64,12 +68,16 @@ export default function AskDrawer({ askId, isAdmin, onClose, onChanged }) {
   // 유저 삭제 버튼(본인 문의만)
   const canDelete = !isAdmin && !!user && !!detail?.id;
 
-  const removeAsk = async () => {
+  const openDeleteModal = () => {
     if (!detail?.id) return;
-    if (!window.confirm("이 문의를 삭제할까요?")) return;
+    setDeleteOpen(true);
+  };
+
+  const confirmRemoveAsk = async () => {
+    if (!detail?.id) return;
 
     try {
-      setLoading(true);
+      setDeleteLoading(true);
       await QnaAPI.remove(detail.id);
       if (onChanged) onChanged();
       if (onClose) onClose();
@@ -79,7 +87,8 @@ export default function AskDrawer({ askId, isAdmin, onClose, onChanged }) {
       else if (status === 403) setErr("삭제 권한이 없습니다.");
       else setErr(getApiErrorMessage(e));
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -101,8 +110,8 @@ export default function AskDrawer({ askId, isAdmin, onClose, onChanged }) {
           <div className="flex items-center gap-2">
             {canDelete && (
               <button
-                onClick={removeAsk}
-                disabled={loading}
+                onClick={openDeleteModal}
+                disabled={loading || deleteLoading}
                 className="px-3 py-1.5 rounded border text-sm hover:bg-gray-50 disabled:opacity-40"
               >
                 삭제
@@ -172,6 +181,19 @@ export default function AskDrawer({ askId, isAdmin, onClose, onChanged }) {
           )}
         </div>
       </aside>
+      <ConfirmModal
+        open={deleteOpen}
+        title="문의 삭제"
+        message="이 문의를 삭제할까요?"
+        confirmText="삭제"
+        cancelText="취소"
+        loading={deleteLoading}
+        onConfirm={confirmRemoveAsk}
+        onCancel={() => {
+          if (deleteLoading) return;
+          setDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }

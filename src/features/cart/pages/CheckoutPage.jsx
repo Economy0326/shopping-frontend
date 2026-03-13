@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "features/cart/context/CartContext";
 import { useAuth } from "features/auth/context/AuthContext";
@@ -6,10 +6,13 @@ import { useAuth } from "features/auth/context/AuthContext";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { SystemAPI } from "shared/api/system.api";
 import {
+  request,
   getApiErrorMessage,
   getApiErrorBody,
   mapCheckoutErrorToUx,
 } from "shared/api/request";
+import { USERS } from "shared/api/endpoints"; // 기본 배송지 저장 endpoint
+import { notify } from "shared/ui/notify"; // 기본 배송지 저장 실패 알림용
 
 import { useBottomBarOffset } from "ui/hooks/useBottomBarOffset";
 
@@ -22,7 +25,7 @@ export default function CheckoutPage() {
   const { cart, clearCart, removeItems } = useCart();
   const { user } = useAuth();
 
-  // 에러 UX 표시용 
+  // 에러 UX 표시용
   const topRef = useRef(null);
   const [submitError, setSubmitError] = useState(null);
 
@@ -85,7 +88,7 @@ export default function CheckoutPage() {
       setSubmitError({
         title: "결제 불가",
         message: "결제할 상품이 없습니다. 장바구니로 이동합니다.",
-        action: { type: "go", label: "장바구니로" },
+        action: { type: "go_cart", label: "장바구니로" },
       });
       navigate("/cart", { replace: true });
     }
@@ -113,17 +116,20 @@ export default function CheckoutPage() {
     requiredFilled("name", "phone", "zipcode", "address1", "address2", "depositor") &&
     !!agree;
 
-  const ensureDaumPostcode = () =>
-    new Promise((resolve, reject) => {
-      if (window.daum?.Postcode) return resolve();
-      const s = document.createElement("script");
-      s.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("postcode script load failed"));
-      document.body.appendChild(s);
-    });
+  const ensureDaumPostcode = useCallback(
+    () =>
+      new Promise((resolve, reject) => {
+        if (window.daum?.Postcode) return resolve();
+        const s = document.createElement("script");
+        s.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("postcode script load failed"));
+        document.body.appendChild(s);
+      }),
+    [],
+  );
 
-  const openPostcode = async () => {
+  const openPostcode = useCallback(async () => {
     try {
       await ensureDaumPostcode();
       new window.daum.Postcode({
@@ -141,48 +147,17 @@ export default function CheckoutPage() {
         },
       }).open();
     } catch {
-        setSubmitError({
-          title: "주소 검색 실패",
-          message: "주소검색 스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
-          action: { type: "retry", label: "다시 시도" },
-        });
-      }
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-
-    // 중복 제출 방지
-    if (submitting) return;
-
-    // 이전 에러 초기화
-    setSubmitError(null);
-
-    if (!payItems?.length) {
       setSubmitError({
-        title: "결제 불가",
-        message: "결제할 상품이 없습니다. 장바구니로 이동합니다.",
-        action: { type: "go", label: "장바구니로" },
+        title: "주소 검색 실패",
+        message: "주소검색 스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        action: { type: "retry_postcode", label: "다시 시도" },
       });
-      navigate("/cart", { replace: true });
-      return;
     }
+  }, [ensureDaumPostcode]);
 
-    if (!canSubmit) {
-      setSubmitError({
-        title: "입력값 확인",
-        message: "필수 항목을 확인해주세요.",
-        action: { type: "scroll", label: "위로" },
-      });
-
-      requestAnimationFrame(() => {
-        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      return;
-    }
-
-    // items, receiver, payment
-    const payload = {
+  // 주문 생성 payload 생성 로직 분리
+  const buildCheckoutPayload = useCallback(() => {
+    return {
       // optionId/variantId는 백엔드 내부에서 매칭 책임지므로 옵션 정보만 넘기면 됨
       items: payItems.map((it) => {
         const base = {
@@ -217,8 +192,7 @@ export default function CheckoutPage() {
         phone: form.phone,
         email: form.email || undefined,
         address: {
-          zip: form.zipcode || undefined,
-          zipcode: form.zipcode || undefined,
+          zip: form.zipcode || undefined, // 명세 기준 zip만 사용
           address1: form.address1,
           address2: form.address2,
         },
@@ -229,16 +203,80 @@ export default function CheckoutPage() {
         depositor: form.depositor,
       },
     };
+  }, [payItems, form]);
+
+  // 기본 배송지 저장 로직 추가
+  const saveDefaultAddressIfNeeded = useCallback(async () => {
+    if (!user) return;
+    if (!saveAsDefault) return;
+
+    try {
+      await request(USERS.DEFAULT_ADDR, {
+        method: "PUT",
+        body: {
+          address: {
+            zip: form.zipcode || undefined,
+            address1: form.address1,
+            address2: form.address2,
+          },
+        },
+      });
+    } catch (e) {
+      // 주문 성공을 막지 않고 안내만 표시
+      notify.warn(
+        getApiErrorMessage(
+          e,
+          "주문은 완료되었지만 기본 배송지 저장에는 실패했습니다.",
+        ),
+      );
+    }
+  }, [user, saveAsDefault, form]);
+
+  // 실제 주문 생성 로직을 별도 함수로 분리
+  const submitOrder = useCallback(async () => {
+    // 중복 제출 방지
+    if (submitting) return;
+
+    // 이전 에러 초기화
+    setSubmitError(null);
+
+    if (!payItems?.length) {
+      setSubmitError({
+        title: "결제 불가",
+        message: "결제할 상품이 없습니다. 장바구니로 이동합니다.",
+        action: { type: "go_cart", label: "장바구니로" },
+      });
+      navigate("/cart", { replace: true });
+      return;
+    }
+
+    if (!canSubmit) {
+      setSubmitError({
+        title: "입력값 확인",
+        message: "필수 항목을 확인해주세요.",
+        action: { type: "scroll", label: "위로" },
+      });
+
+      requestAnimationFrame(() => {
+        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+
+    const payload = buildCheckoutPayload();
 
     try {
       setSubmitting(true);
       const res = await OrdersAPI.checkout(payload);
 
-      // id 추출 실패 시 에러처리
-      const newId = res?.data?.id ?? res?.id ?? res;
+      // 응답 포맷 통일 기준으로만 읽기
+      const newId = res?.data?.id;
       if (!newId) {
         throw new Error("주문 생성은 되었으나 주문번호(id)를 확인할 수 없습니다.");
       }
+
+      // 기본 배송지 저장은 best-effort로 수행
+      await saveDefaultAddressIfNeeded();
 
       // 결제 성공 후 장바구니 정리
       if (isSelectedCheckout) {
@@ -264,7 +302,6 @@ export default function CheckoutPage() {
         requestAnimationFrame(() => {
           topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
-
       } else {
         setSubmitError({
           title: "주문 생성 실패",
@@ -276,7 +313,54 @@ export default function CheckoutPage() {
     } finally {
       setSubmitting(false);
     }
+  }, [
+    submitting,
+    payItems,
+    canSubmit,
+    navigate,
+    buildCheckoutPayload,
+    saveDefaultAddressIfNeeded,
+    isSelectedCheckout,
+    selectedKeysFromState,
+    removeItems,
+    clearCart,
+  ]);
+
+  // form submit은 submitOrder만 호출
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    await submitOrder();
   };
+
+  // submitError action 처리 통일
+  const handleSubmitErrorAction = useCallback(async () => {
+    const type = submitError?.action?.type;
+    if (!type) return;
+
+    if (type === "retry") {
+      await submitOrder();
+      return;
+    }
+
+    if (type === "retry_postcode") {
+      await openPostcode();
+      return;
+    }
+
+    if (type === "scroll") {
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (type === "go_cart") {
+      navigate("/cart");
+      return;
+    }
+
+    if (type === "close") {
+      setSubmitError(null);
+    }
+  }, [submitError, submitOrder, navigate, openPostcode]);
 
   return (
     <main
@@ -305,17 +389,12 @@ export default function CheckoutPage() {
             </ul>
           )}
 
-          {/* action 버튼  */}
+          {/* action 버튼 */}
           {submitError?.action && (
             <button
               type="button"
               className="mt-3 border px-3 py-2 rounded text-sm"
-              onClick={() => {
-                if (submitError.action.type === "retry") onSubmit(new Event("submit"));
-                if (submitError.action.type === "scroll")
-                  topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                if (submitError.action.type === "go") navigate("/cart");
-              }}
+              onClick={handleSubmitErrorAction}
             >
               {submitError.action.label}
             </button>
@@ -408,7 +487,12 @@ export default function CheckoutPage() {
             </button>
           </div>
 
-          <input className="border rounded p-2" value={form.address1} readOnly placeholder="기본주소" />
+          <input
+            className="border rounded p-2"
+            value={form.address1}
+            readOnly
+            placeholder="기본주소"
+          />
 
           <input
             id="address2"

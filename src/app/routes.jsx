@@ -25,6 +25,7 @@ import SecretPage from "features/home/pages/SecretPage";
 import ProductPage from "features/catalog/pages/ProductPage";
 import CategoryPage from "features/catalog/pages/CategoryPage";
 import LookPage from "features/catalog/pages/LookPage";
+import LookDetailPage from "features/catalog/pages/LookDetailPage";
 
 // Cart pages
 import CartPage from "features/cart/pages/CartPage";
@@ -85,6 +86,7 @@ export default function AppRoutes() {
         <Route path="product/:id" element={<ProductPage />} />
         <Route path="category/:categoryName" element={<CategoryPage />} />
         <Route path="look" element={<LookPage />} />
+        <Route path="look/:id" element={<LookDetailPage />} />
 
         {/* cart */}
         <Route path="cart" element={<CartPage />} />

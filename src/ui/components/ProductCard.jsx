@@ -14,7 +14,7 @@ export default function ProductCard({ product }) {
   return (
     <article className="border rounded-xl bg-white shadow-sm overflow-hidden">
       <NavLink to={`/product/${product.id}`} className="block">
-        <div className="w-full h-56 bg-gray-100 flex items-center justify-center overflow-hidden">
+        <div className="w-full aspect-square bg-gray-100 overflow-hidden">
           <img src={thumbnail} alt={product.name} className="w-full h-full object-cover" />
         </div>
         <div className="p-3">

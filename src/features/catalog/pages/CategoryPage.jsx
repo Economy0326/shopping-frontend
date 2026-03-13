@@ -16,6 +16,12 @@ export default function CategoryPage() {
   const category = categoryName || "all";
 
   const activeLinkRef = useRef(null);
+  const scrollRef = useRef(null);
+  const dragRef = useRef({
+    isDown: false,
+    startX: 0,
+    scrollLeft: 0,
+  })
 
   // category 변경 시 중앙으로
   useEffect(() => {
@@ -30,6 +36,24 @@ export default function CategoryPage() {
       });
     });
   }, [category]);
+
+  const onDragStart = (e) => {
+    if (!scrollRef.current) return;
+    dragRef.current.isDown = true;
+    dragRef.current.startX = e.pageX;
+    dragRef.current.scrollLeft = scrollRef.current.scrollLeft;
+  };
+
+  const onDragMove = (e) => {
+    if (!dragRef.current.isDown || !scrollRef.current) return;
+    e.preventDefault();
+    const dx = e.pageX - dragRef.current.startX;
+    scrollRef.current.scrollLeft = dragRef.current.scrollLeft - dx;
+  };
+
+  const onDragEnd = () => {
+    dragRef.current.isDown = false;
+  };
 
   const load = async () => {
     try {
@@ -70,14 +94,16 @@ export default function CategoryPage() {
         <div className="relative w-full sm:w-[80%] mx-auto px-4 py-4 bg-white">
           <div
             className="
-              flex flex-nowrap items-center 
-              justify-start sm:justify-between
+              flex w-max flex-nowrap items-center
               gap-3 sm:gap-6 xl:gap-10
-              overflow-x-auto sm:overflow-x-visible
-              scroll-smooth
+              overflow-x-auto scroll-smooth cursor-grab active:cursor-grabbing
               [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
               [scroll-snap-type:x_mandatory] sm:[scroll-snap-type:none]
             "
+            onMouseDown={onDragStart}
+            onMouseMove={onDragMove}
+            onMouseUp={onDragEnd}
+            onMouseLeave={onDragEnd}
           >
             {categories.map((cat) => (
               <NavLink

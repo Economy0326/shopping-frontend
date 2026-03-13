@@ -7,8 +7,8 @@ export default function LookCard({ product }) {
       : "";
 
   return (
-    <Link to={`/product/${product.id}`} className="block">
-      <div className="mb-2 rounded-2xl overflow-hidden aspect-[3/4] bg-gray-100">
+    <Link to={`/look/${product.id}`} className="block">
+      <div className="mb-2 rounded-2xl overflow-hidden aspect-[2/3] bg-gray-100">
         {cover ? (
           <img
             src={cover}

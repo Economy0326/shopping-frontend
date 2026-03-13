@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AdminProductsAPI } from "features/admin/api/adminProducts.api";
 import { getApiErrorMessage } from "shared/api/request";
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 export default function AdminProductsPage() {
   const nav = useNavigate();
@@ -11,6 +12,9 @@ export default function AdminProductsPage() {
 
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const load = async () => {
     try {
@@ -48,17 +52,26 @@ export default function AdminProductsPage() {
     });
   }, [rows, q, category]);
 
-  const remove = async (id) => {
-    if (!window.confirm("이 상품을 삭제할까요? (복구 불가)")) return;
+  const openRemoveModal = (id) => {
+    if (!id) return;
+    setDeleteTargetId(id);
+    setDeleteOpen(true);
+  };
+
+  const confirmRemove = async () => {
+    if (!deleteTargetId) return;
+
     try {
       setLoading(true);
       setErr("");
-      await AdminProductsAPI.remove(id);
+      await AdminProductsAPI.remove(deleteTargetId);
       await load();
     } catch (e) {
       setErr(getApiErrorMessage(e, "삭제 실패"));
     } finally {
       setLoading(false);
+      setDeleteOpen(false);
+      setDeleteTargetId(null);
     }
   };
 
@@ -116,36 +129,52 @@ export default function AdminProductsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id}>
-                <td className="border p-2 font-mono">{p.id}</td>
-                <td className="border p-2">{p.name}</td>
-                <td className="border p-2">{p.categorySlug ?? p.category}</td>
-                <td className="border p-2 text-right">
-                  {(Number(p.price) || 0).toLocaleString()}원
-                </td>
-                <td className="border p-2">
-                  <Link className="underline" to={`/product/${p.id}`}>
-                    상품 상세 보기
-                  </Link>
-                </td>
-                <td className="border p-2">
-                  <div className="flex gap-2">
-                    <Link to={`/admin/products/${p.id}/edit`} className="px-2 py-1 border rounded text-sm">
-                      편집
-                    </Link>
+            {filtered.map((p) => {
+              const rowCategory = p.categorySlug ?? p.category;
+              const previewUrl =
+                rowCategory === "look" ? `/look/${p.id}` : `/product/${p.id}`;
 
-                    <button
-                      type="button"
-                      className="px-2 py-1 border rounded text-sm text-red-600"
-                      onClick={() => remove(p.id)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+              return (
+                <tr key={p.id}>
+                  <td className="border p-2 font-mono">{p.id}</td>
+                  <td className="border p-2">{p.name}</td>
+                  <td className="border p-2">{rowCategory}</td>
+                  <td className="border p-2 text-right">
+                    {(Number(p.price) || 0).toLocaleString()}원
+                  </td>
+                  <td className="border p-2">
+                    <Link className="underline" to={previewUrl}>
+                      상품 상세 보기
+                    </Link>
+                  </td>
+                  <td className="border p-2">
+                    <div className="flex gap-2">
+                      <Link
+                        to={previewUrl}
+                        className="px-2 py-1 border rounded text-sm"
+                      >
+                        미리보기
+                      </Link>
+
+                      <Link
+                        to={`/admin/products/${p.id}/edit`}
+                        className="px-2 py-1 border rounded text-sm"
+                      >
+                        편집
+                      </Link>
+
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded text-sm text-red-600"
+                        onClick={() => openRemoveModal(p.id)}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
 
             {filtered.length === 0 && !loading && (
               <tr>
@@ -157,6 +186,20 @@ export default function AdminProductsPage() {
           </tbody>
         </table>
       </div>
+      <ConfirmModal
+        open={deleteOpen}
+        title="상품 삭제"
+        message="이 상품을 삭제할까요? (복구 불가)"
+        confirmText="삭제"
+        cancelText="취소"
+        loading={loading}
+        onConfirm={confirmRemove}
+        onCancel={() => {
+          if (loading) return;
+          setDeleteOpen(false);
+          setDeleteTargetId(null);
+        }}
+      />
     </main>
   );
 }

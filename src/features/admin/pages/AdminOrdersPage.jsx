@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
 import { notify } from "shared/ui/notify";
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -27,6 +28,10 @@ export default function AdminOrdersPage() {
   const [list, setList] = useState([]);
   const [meta, setMeta] = useState({ page: 1, size: 20, total: 0 });
   const [loading, setLoading] = useState(false);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // UI filter states
   const [status, setStatus] = useState(""); // "", "AWAITING_DEPOSIT", ...
@@ -97,19 +102,29 @@ export default function AdminOrdersPage() {
     [meta]
   );
 
-  const depositConfirm = async (order) => {
+  const openDepositConfirm = (order) => {
     const expired = isExpiredAwaiting(order);
-    const can = order.status === "AWAITING_DEPOSIT" && !expired;
+    const can = order?.status === "AWAITING_DEPOSIT" && !expired;
     if (!can) return;
 
-    if (!window.confirm("입금 확인 처리할까요?")) return;
+    setConfirmTarget(order);
+    setConfirmOpen(true);
+  };
+
+  const runDepositConfirm = async () => {
+    if (!confirmTarget) return;
 
     try {
-      await request(ADMIN.ORDERS.DEPOSIT(order.id), { method: "POST" });
+      setConfirmLoading(true);
+      await request(ADMIN.ORDERS.DEPOSIT(confirmTarget.id), { method: "POST" });
       notify.success("입금 확인 완료");
       await load(meta.page || 1);
     } catch (e) {
       notify.error(getApiErrorMessage(e, "입금 확인 실패"));
+    } finally {
+      setConfirmLoading(false);
+      setConfirmOpen(false);
+      setConfirmTarget(null);
     }
   };
 
@@ -229,7 +244,7 @@ export default function AdminOrdersPage() {
                   <td className="border p-2">
                     <button
                       disabled={!canDepositConfirm}
-                      onClick={() => depositConfirm(o)}
+                      onClick={() => openDepositConfirm(o)}
                       className={`px-3 py-1 rounded border ${
                         canDepositConfirm
                           ? "hover:bg-gray-50"
@@ -262,6 +277,20 @@ export default function AdminOrdersPage() {
           다음 페이지
         </button>
       )}
+      <ConfirmModal
+        open={confirmOpen}
+        title="입금 확인"
+        message="입금 확인 처리할까요?"
+        confirmText="확인"
+        cancelText="취소"
+        loading={confirmLoading}
+        onConfirm={runDepositConfirm}
+        onCancel={() => {
+          if (confirmLoading) return;
+          setConfirmOpen(false);
+          setConfirmTarget(null);
+        }}
+      />
     </main>
   );
 }

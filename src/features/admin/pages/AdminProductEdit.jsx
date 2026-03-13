@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AdminProductsAPI } from "features/admin/api/adminProducts.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { notify } from "shared/ui/notify";
+import ConfirmModal from "shared/ui/ConfirmModal";
 
 function toNumber(v, fallback = 0) {
   const n = Number(v);
@@ -21,6 +22,8 @@ export default function AdminProductEdit() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -97,6 +100,9 @@ export default function AdminProductEdit() {
   const removeImage = (url) => setForm((f) => ({ ...f, images: f.images.filter((u) => u !== url) }));
 
   const isLook = form.category === "look";
+
+  const previewUrl = isLook ? `/look/${id}` : `/product/${id}`;
+
   const priceDisabled = isLook;
 
   const updateOption = (groupKey, tmpId, patch) => {
@@ -174,9 +180,14 @@ export default function AdminProductEdit() {
     }
   };
 
-  const removeProduct = async () => {
+  const openRemoveProductModal = () => {
     if (!id) return;
-    if (!window.confirm("이 상품을 삭제할까요? (복구 불가)")) return;
+    setDeleteOpen(true);
+  };
+
+  const confirmRemoveProduct = async () => {
+    if (!id) return;
+
     try {
       setLoading(true);
       await AdminProductsAPI.remove(id);
@@ -186,6 +197,7 @@ export default function AdminProductEdit() {
       notify.error(getApiErrorMessage(e, "삭제 실패"));
     } finally {
       setLoading(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -326,8 +338,9 @@ export default function AdminProductEdit() {
                       />
                       <button
                         type="button"
-                        className="border rounded px-3 py-2 text-sm hover:bg-gray-50"
-                        onClick={() => removeOption(g.key, o._tmpId)}
+                        className="rounded-xl px-4 py-2 text-sm border"
+                        onClick={openRemoveProductModal}
+                        disabled={loading}
                       >
                         삭제
                       </button>
@@ -388,16 +401,39 @@ export default function AdminProductEdit() {
             {saving ? "저장 중…" : "상품 수정"}
           </button>
 
+          {id && (
+            <button 
+              type="button"
+              className="rounded-xl px-4 py-2 text-sm border"
+              onClick={() => nav(previewUrl)}
+            >
+              미리보기
+            </button>
+          )}
+
           <button
             type="button"
             className="rounded-xl px-4 py-2 text-sm border"
-            onClick={removeProduct}
+            onClick={openRemoveProductModal}
             disabled={loading}
           >
             삭제
           </button>
         </div>
       </form>
+      <ConfirmModal
+        open={deleteOpen}
+        title="상품 삭제"
+        message="이 상품을 삭제할까요? (복구 불가)"
+        confirmText="삭제"
+        cancelText="취소"
+        loading={loading}
+        onConfirm={confirmRemoveProduct}
+        onCancel={() => {
+          if (loading) return;
+          setDeleteOpen(false);
+        }}
+      />
     </main>
   );
 }
