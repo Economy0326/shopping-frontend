@@ -91,12 +91,13 @@ export default function AdminOrderDetailPage() {
   }, [order?.expiresAt, order?.status]);
 
   // 버튼 활성 조건
+  const ret = order?.return ?? null;
+
   const canDepositConfirm = status === "AWAITING_DEPOSIT" && !isExpired;
   const canShip = status === "DEPOSIT_CONFIRMED";
   const canDeliverForce = status === "SHIPPED";
-  const canRefund = ["CANCELED", "DELIVERED"].includes(status);
+  const canRefund = !!(ret?.id && ret?.status === "APPROVED");
 
-  const ret = order?.return ?? null;
   const canReturnApprove = !!(ret?.id && ret?.status === "REQUESTED");
   const canReturnReject = !!(ret?.id && ret?.status === "REQUESTED");
 
@@ -317,7 +318,7 @@ export default function AdminOrderDetailPage() {
             <h1 className="text-2xl font-bold">관리자 · 주문 상세</h1>
             <div className="mt-2 flex items-center gap-2">
               <span className="font-mono text-sm">#{order.id}</span>
-              <Badge text={order.status} />
+              {ret?.status && <Badge text={`반품:${ret.status}`} /> }
               {isExpired && <Badge text="입금기한 만료" />}
             </div>
             <div className="mt-2 text-xs text-gray-500">
@@ -494,7 +495,7 @@ export default function AdminOrderDetailPage() {
               <div>
                 <div className="font-semibold">환불 로그 기록</div>
                 <div className="text-xs text-gray-500">
-                  CANCELED 또는 DELIVERED 상태에서만 / Full refund only
+                  반품이 APPROVED 상태일 때만 가능 / Full refund only
                 </div>
               </div>
               <button

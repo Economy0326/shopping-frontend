@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react"; 
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { request, getApiErrorMessage } from "shared/api/request";
 import { ADMIN } from "shared/api/endpoints";
 import { notify } from "shared/ui/notify";
 import ConfirmModal from "shared/ui/ConfirmModal";
+import {
+  statusLabel,
+  returnStatusLabel,
+} from "shared/utils/orderStatusView";
 
 function formatWon(n) {
   return (Number(n) || 0).toLocaleString() + "원";
@@ -33,38 +37,32 @@ export default function AdminOrdersPage() {
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
-  // UI filter states
-  const [status, setStatus] = useState(""); // "", "AWAITING_DEPOSIT", ...
+  const [status, setStatus] = useState("");
   const [onlyExpired, setOnlyExpired] = useState(false);
-  const [q, setQ] = useState(""); // 주문ID/이메일 검색
+  const [q, setQ] = useState("");
 
-  const reqSeqRef = useRef(0); // 레이스 방지 seq
-  const debounceRef = useRef(null); // debounce timer
+  const reqSeqRef = useRef(0);
+  const debounceRef = useRef(null);
 
   const load = async (page = 1) => {
     const mySeq = ++reqSeqRef.current;
     try {
       setLoading(true);
 
-      // 서버가 관리자 목록에서 필터를 지원한다면 params로 그대로 넘기면 되고,
-      // 지원 안 하면 아래처럼 프론트 필터로도 최소 운영 가능.
       const params = {
         page,
         size: meta.size,
         ...(status ? { status } : {}),
         ...(q.trim() ? { q: q.trim() } : {}),
-        // onlyExpired는 백엔드 지원 여부 애매해서 프론트에서 처리
       };
 
       const res = await request(ADMIN.ORDERS.ROOT, { params });
 
-      // 레이스 방지 - 최신 요청이 아니면 무시
       if (mySeq !== reqSeqRef.current) return;
 
       const rows = res?.data ?? [];
       const m = res?.meta ?? { page, size: meta.size, total: 0 };
 
-      // 프론트 만료 필터(선택)
       const filtered = onlyExpired
         ? rows.filter((o) => isExpiredAwaiting(o))
         : rows;
@@ -72,7 +70,6 @@ export default function AdminOrdersPage() {
       setList(filtered);
       setMeta(m);
     } catch (e) {
-      // 레이스 방지 - 최신 요청이 아니면 경고/상태변경도 하지 않음
       if (mySeq !== reqSeqRef.current) return;
       notify.error(getApiErrorMessage(e, "주문 목록 로드 실패"));
     } finally {
@@ -137,7 +134,6 @@ export default function AdminOrdersPage() {
     <main className="max-w-7xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">관리자 · 주문 관리</h1>
 
-      {/* 필터 바 */}
       <form
         onSubmit={onSearch}
         className="flex flex-col md:flex-row gap-2 md:items-center mb-4"
@@ -201,23 +197,28 @@ export default function AdminOrdersPage() {
               return (
                 <tr key={o.id}>
                   <td className="border p-2 font-mono">
-                    <Link
-                      to={`/admin/orders/${o.id}`}
-                      className="underline"
-                      title="주문 상세로"
-                    >
-                      {o.id}
-                    </Link>
+                    <div className="break-all">
+                      <Link
+                        to={`/admin/orders/${o.id}`}
+                        className="underline"
+                        title="주문 상세로"
+                      >
+                        {o.id}
+                      </Link>
+                    </div>
                   </td>
 
                   <td className="border p-2">
-                    <div className="text-xs text-gray-500">
+                    <div className="font-semibold">{o?.buyer?.name ?? "-"}</div>
+                    <div className="text-xs text-gray-500 break-all">
                       {o?.buyer?.email ?? "-"}
                     </div>
-                    <div className="font-semibold">{o?.buyer?.name ?? "-"}</div>
+                    <div className="text-xs text-gray-500">
+                      {o?.buyer?.phone ?? "-"}
+                    </div>
                   </td>
 
-                  <td className="border p-2">
+                  <td className="border p-2 break-words">
                     {o?.representativeItem?.name ?? "-"}
                   </td>
 
@@ -227,7 +228,14 @@ export default function AdminOrdersPage() {
 
                   <td className="border p-2">
                     <div className="flex flex-col gap-1">
-                      <span>{o.status}</span>
+                      <span>{statusLabel(o.status)}</span>
+
+                      {o?.return?.status && (
+                        <span className="text-xs text-gray-500">
+                          반품: {returnStatusLabel(o.return.status)}
+                        </span>
+                      )}
+
                       {expired && (
                         <span className="text-xs font-semibold text-rose-600">
                           자동취소 예정/취소됨
@@ -277,6 +285,7 @@ export default function AdminOrdersPage() {
           다음 페이지
         </button>
       )}
+
       <ConfirmModal
         open={confirmOpen}
         title="입금 확인"

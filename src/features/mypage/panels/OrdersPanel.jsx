@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "features/mypage/panels/_shared";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { getApiErrorMessage } from "shared/api/request";
-import { statusLabel, statusColor } from "shared/utils/orderStatusView";
+import {
+  statusLabel,
+  statusColor,
+  returnStatusLabel,
+  returnStatusColor,
+} from "shared/utils/orderStatusView";
 import { Link } from "react-router-dom";
 import { canConfirm } from "shared/utils/orderPolicy";
 import { notify } from "shared/ui/notify";
@@ -12,6 +17,7 @@ function formatWon(n) {
   return v.toLocaleString() + "원";
 }
 
+// 주문 상태 배지
 function StatusBadge({ status }) {
   return (
     <span
@@ -24,13 +30,28 @@ function StatusBadge({ status }) {
   );
 }
 
+// 반품 상태 배지 
+function ReturnBadge({ status }) {
+  if (!status) return null;
+
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${returnStatusColor(
+        status
+      )}`}
+    >
+      {returnStatusLabel(status)}
+    </span>
+  );
+}
+
 function OrderCard({ order, onConfirm }) {
   const rep = order.representativeItem || {};
   const canConfirmBtn = canConfirm(order.status);
 
   return (
     <article className="w-full rounded-2xl border bg-white shadow-sm p-4 md:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:gap-4">
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
           {rep.thumbnailUrl ? (
             <img
@@ -43,10 +64,10 @@ function OrderCard({ order, onConfirm }) {
           )}
         </div>
 
-        <div className="flex flex-col justify-center gap-1 min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          <div className="flex flex-wrap items-center gap-2">
             <div
-              className="text-base md:text-lg font-medium truncate"
+              className="text-base md:text-lg font-medium break-words"
               title={rep.name}
             >
               {rep.name || "상품명"}
@@ -56,12 +77,24 @@ function OrderCard({ order, onConfirm }) {
                 </span>
               )}
             </div>
+
             <StatusBadge status={order.status} />
+            <ReturnBadge status={order?.return?.status} />
           </div>
 
           {rep.optionSummary && (
             <div className="text-sm text-gray-600">{rep.optionSummary}</div>
           )}
+
+          {order?.return?.status && (
+            <div className="text-xs text-gray-500">
+              {order.return.status === "REQUESTED" && "반품이 접수되었습니다."}
+              {order.return.status === "APPROVED" && "반품 승인 상태입니다. 환불 처리 대기 중입니다."}
+              {order.return.status === "REJECTED" && "반품이 거절되었습니다."}
+              {order.return.status === "REFUNDED" && "환불이 완료되었습니다."}
+            </div>
+          )}
+
           <div className="text-sm font-semibold">
             {formatWon(order?.amounts?.grandTotal)}
           </div>
@@ -73,12 +106,13 @@ function OrderCard({ order, onConfirm }) {
           </div>
         </div>
 
-        <div className="sm:ml-auto w-full sm:w-56 flex items-center justify-between sm:flex-col sm:items-end sm:justify-between mt-1 sm:mt-0">
+        <div className="w-full lg:w-52 lg:ml-auto shink-0 flex flex-col gap-2 lg:items-end lg:text-right">
           <div className="text-left sm:text-right text-xs md:text-sm text-gray-500 leading-5 w-full sm:w-auto space-y-0.5">
-            <div className="whitespace-nowrap truncate" title={order.createdAt}>
+            <div className="text-xs md:text-sm text-gray-500" title={order.createdAt}>
               주문 일자: {order.createdAt}
             </div>
-            <div className="whitespace-nowrap truncate font-mono" title={order.id}>
+
+            <div className="break-all font-mono text-xs md:text-sm" title={order.id}>
               주문 번호: {order.id}
             </div>
           </div>
@@ -86,7 +120,7 @@ function OrderCard({ order, onConfirm }) {
           {canConfirmBtn && (
             <button
               onClick={() => onConfirm(order.id)}
-              className="sm:mt-3 ml-3 sm:ml-0 inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium bg-black text-white hover:opacity-90 transition"
+              className="sm:mt-3 inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium bg-black text-white hover:opacity-90 transition"
             >
               구매확정
             </button>
@@ -108,7 +142,6 @@ export default function OrdersPanel() {
   const load = async (page = 1) => {
     try {
       setLoading(true);
-      // 명세: GET /orders -> { data:[...], meta:{page,size,total} }
       const res = await OrdersAPI.list({
         page,
         size: meta.size || 10,
@@ -142,7 +175,6 @@ export default function OrdersPanel() {
 
       // 재조회: 서버의 최신 상태를 다시 받아서 list 갱신
       await load(1);
-      
     } catch (e) {
       notify.error(getApiErrorMessage(e));
     }

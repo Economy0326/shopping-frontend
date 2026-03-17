@@ -1,4 +1,3 @@
-import { ToastContainer } from "react-toastify";
 import HeaderUnified from "ui/components/HeaderUnified";
 import Footer from "ui/components/Footer";
 
@@ -13,8 +12,6 @@ export default function Layout({ children }) {
         </main>
         <Footer />
       </div>
-
-      <ToastContainer />
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { AdminReturnsAPI } from "features/admin/api/adminReturns.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { notify } from "shared/ui/notify";
 import PromptModal from "shared/ui/PromptModal";
+import { returnStatusLabel } from "shared/utils/orderStatusView";
 
 function dt(s) {
   if (!s) return "-";
@@ -184,11 +186,24 @@ export default function AdminReturnsPage() {
               return (
                 <tr key={r.id}>
                   <td className="border p-2 font-mono">{r.id}</td>
-                  <td className="border p-2 font-mono">{r.orderId}</td>
-                  <td className="border p-2">{r.status}</td>
+
+                  <td className="border p-2 font-mono">
+                    <Link
+                      to={`/admin/orders/${r.orderId}`}
+                      className="underline break-all"
+                    >
+                      {r.orderId}
+                    </Link>
+                  </td>
+
+                  <td className="border p-2">
+                    {returnStatusLabel(r.status)}
+                  </td>
+
                   <td className="border p-2">{r.reason ?? "-"}</td>
                   <td className="border p-2">{r.memo ?? "-"}</td>
                   <td className="border p-2 text-xs">{dt(r.createdAt)}</td>
+
                   <td className="border p-2">
                     <div className="flex gap-2">
                       <button
@@ -234,6 +249,7 @@ export default function AdminReturnsPage() {
           다음 페이지
         </button>
       )}
+
       <PromptModal
         open={approveOpen}
         title="반품 승인"

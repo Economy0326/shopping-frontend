@@ -181,7 +181,7 @@ export default function CheckoutPage() {
             }, {});
 
           if (Object.keys(cleaned).length) {
-            base.options = cleaned;
+            base.optionValues = cleaned;
           }
         }
 

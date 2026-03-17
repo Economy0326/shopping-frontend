@@ -13,7 +13,6 @@ export function OrderProvider({ children }) {
       confirmOrder: (id, note) => OrdersAPI.confirm(id, note),
       cancelOrder: (payload) => OrdersAPI.cancelRequest(payload),
       returnOrder: (payload) => OrdersAPI.returnRequest(payload),
-      // track 제거: 주문 상세에 shipping 포함(명세 9)
     }),
     []
   );

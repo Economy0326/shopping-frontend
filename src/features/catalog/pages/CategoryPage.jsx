@@ -28,10 +28,11 @@ export default function CategoryPage() {
     // 레이아웃/폰트 적용 후 스크롤되도록 RAF 2번
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        const isMobile = window.innerWidth < 640;
         activeLinkRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "nearest",
-          inline: "center",
+          inline: isMobile ? "center" : "nearest",
         });
       });
     });
@@ -93,10 +94,12 @@ export default function CategoryPage() {
         {/* (모바일) 스냅/스크롤 + (sm+) 스크롤 없이 전체 노출 */}
         <div className="relative w-full sm:w-[80%] mx-auto px-4 py-4 bg-white">
           <div
+            ref={scrollRef}
             className="
-              flex w-max flex-nowrap items-center
+              flex w-max sm:w-full flex-nowrap sm:flex-wrap items-center sm:justify-center
               gap-3 sm:gap-6 xl:gap-10
-              overflow-x-auto scroll-smooth cursor-grab active:cursor-grabbing
+              overflow-x-auto sm:overflow-visible
+              scroll-smooth cursor-grab active:cursor-grabbing
               [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
               [scroll-snap-type:x_mandatory] sm:[scroll-snap-type:none]
             "
