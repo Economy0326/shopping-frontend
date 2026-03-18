@@ -131,16 +131,6 @@ export default function AdminProductEdit() {
     }));
   };
 
-  const removeOption = (groupKey, tmpId) => {
-    setForm((prev) => ({
-      ...prev,
-      optionGroups: prev.optionGroups.map((g) => {
-        if (g.key !== groupKey) return g;
-        return { ...g, options: g.options.filter((o) => o._tmpId !== tmpId) };
-      }),
-    }));
-  };
-
   const submit = async (e) => {
     e.preventDefault();
     if (!id) return;
