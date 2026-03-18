@@ -2,7 +2,7 @@
 
 ## 환경 변수
 
-REACT_APP_API_BASE=https://***.onrender.com  
+REACT_APP_API_BASE=https://shopping-backend-2yx6.onrender.com 
 REACT_APP_API_PREFIX=/api/v1
 
 - 운영에서는 http://localhost:8080 사용 금지
