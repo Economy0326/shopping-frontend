@@ -23,6 +23,14 @@ function unwrapList(res) {
   return payload && payload.data ? payload.data : payload;
 }
 
+function getStatusLabel(status) {
+  return status === "answered" ? "답변완료" : "대기중";
+}
+
+function getStatusBg(status) {
+  return status === "answered" ? "#d1fae5" : "#e5e7eb";
+}
+
 export default function AskListPage() {
   const nav = useNavigate();
   const { user, ready } = useAuth();
@@ -168,12 +176,12 @@ export default function AskListPage() {
                   style={{
                     padding: "4px 10px",
                     borderRadius: 999,
-                    background: it.status === "answered" ? "#d1fae5" : "#e5e7eb",
+                    background: getStatusBg(it.status),
                     fontSize: 12,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {it.status === "answered" ? "답변완료" : "대기중"}
+                  {getStatusLabel(it.status)}
                 </span>
 
                 <button

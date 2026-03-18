@@ -3,7 +3,7 @@ import Footer from "ui/components/Footer";
 
 export default function Layout({ children }) {
   return (
-    <div className="min-h-dvh bg-white text-black">
+    <div className="min-h-dvh bg-white text-black overflow-x-hidden">
       <HeaderUnified showLogo={false} />
 
       <div className="px-3 md:px-8 lg:px-12">
