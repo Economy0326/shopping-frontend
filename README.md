@@ -131,3 +131,86 @@ COLOR: black(2)
 - 브라우저 쿠키 허용 여부
 - 시크릿 모드 사용 여부
 - 브라우저 보안 정책 여부
+
+---
+
+## 응답 처리 규칙
+
+- 모든 API 성공 응답은 { data: ... } 형식으로 온다고 가정한다
+- 프론트는 pickData(res) 또는 공통 유틸로 data를 벗겨 사용한다
+- 리스트 응답은 { data: [], meta: { page, size, total } } 형식이다
+- 값이 비어 있는 상태(empty value)는 정상 응답일 수 있으며 404가 아니다
+
+---
+
+## Notice 운영 규칙
+
+### API
+
+- GET /notices
+- GET /notices/{id}
+
+### 화면 규칙
+
+- 공지 목록이 비어 있으면 "등록된 공지가 없습니다." 표시
+- 공지 상세가 존재하지 않으면 "존재하지 않는 공지입니다." 표시
+- 공지 본문은 plain text 기준으로 줄바꿈 유지하여 렌더링한다
+
+예시:
+
+<div className="whitespace-pre-wrap">
+  {notice.body}
+</div>
+
+---
+
+## QnA 운영 규칙
+
+- user는 본인 문의만 조회 가능
+- admin은 전체 조회 가능
+- detail은 작성자 또는 admin만 접근 가능
+- 삭제는 soft delete 기준이며 목록에서는 제외된다
+
+응답 규칙:
+
+- 목록: { data: [...], meta: ... }
+- 상세: { data: {...} }
+- 삭제/상태 변경: { data: true }
+
+---
+
+## FAQ 표시 규칙
+
+- FAQ는 system policy 데이터로 관리된다
+- FAQ 조회는 공개 가능하다
+- FAQ는 plain text 기준이며 줄바꿈을 유지한다
+- FAQ 값이 없어도 정상 응답이다 (404 아님)
+
+### 빈 값 처리
+
+- FAQ 값이 비어 있으면 아래 문구를 표시한다
+
+FAQ가 아직 등록되지 않았습니다.
+
+예시:
+
+<div className="whitespace-pre-wrap">
+  {faq?.content?.trim() || "FAQ가 아직 등록되지 않았습니다."}
+</div>
+
+---
+
+## System Policy 처리 규칙
+
+다음 항목은 system policy로 관리된다
+
+- faq
+- returns
+- bankAccount
+- shipping
+
+공통 규칙:
+
+- 값이 없어도 404로 처리하지 않는다
+- 빈 값은 정상 상태로 처리한다
+- 프론트는 fallback UI를 표시한다
