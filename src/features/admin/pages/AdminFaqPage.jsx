@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AdminFaqAPI } from "features/admin/api/adminFaq.api";
+import { SystemAPI } from "shared/api/system.api";
 import { getApiErrorMessage } from "shared/api/request";
 import { notify } from "shared/ui/notify";
 
@@ -15,9 +15,8 @@ export default function AdminFaqPage() {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await AdminFaqAPI.get();
-      const data = res?.data ?? res ?? null;
-      const text = typeof data === "string" ? data : data?.value ?? "";
+      const policy = await SystemAPI.policy("faq");
+      const text = typeof policy?.value === "string" ? policy.value : "";
       setValue(text);
     } catch (e) {
       notify.error(getApiErrorMessage(e, "FAQ 불러오기 실패"));
@@ -34,7 +33,7 @@ export default function AdminFaqPage() {
   const save = async () => {
     try {
       setSaving(true);
-      await AdminFaqAPI.update(value);
+      await SystemAPI.updateFaq(value);
       notify.success("FAQ 저장 완료");
       await load();
     } catch (e) {

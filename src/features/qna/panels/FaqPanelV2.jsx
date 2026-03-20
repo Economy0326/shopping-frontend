@@ -11,8 +11,8 @@ export default function FaqPanelV2() {
     try {
       setLoading(true);
 
-      const v = await SystemAPI.policy("faq");
-      const text = typeof v === "string" ? v : v?.value ?? "";
+      const policy = await SystemAPI.policy("faq");
+      const text = typeof policy?.value === "string" ? policy.value : "";
 
       setValue(text);
     } catch (e) {
@@ -35,10 +35,14 @@ export default function FaqPanelV2() {
 
       {loading ? (
         <div className="border rounded p-4 text-sm text-gray-500">불러오는 중…</div>
-      ) : value ? (
-        <div className="border rounded p-4 text-sm whitespace-pre-wrap bg-white">{value}</div>
+      ) : value.trim() ? (
+        <div className="border rounded p-4 text-sm whitespace-pre-wrap bg-white">
+          {value}
+        </div>
       ) : (
-        <div className="border rounded p-4 text-sm text-gray-500">FAQ가 아직 등록되지 않았습니다.</div>
+        <div className="border rounded p-4 text-sm text-gray-500">
+          FAQ가 아직 등록되지 않았습니다.
+        </div>
       )}
     </section>
   );
