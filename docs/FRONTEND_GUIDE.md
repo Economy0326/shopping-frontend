@@ -85,13 +85,13 @@ const httpClient = axios.create({
 ```text
 POST /auth/login
   ↓
-서버가 Access Token을 응답 body로 반환
+서버가 응답 body로 Access Token 반환
   ↓
-서버가 Refresh Token을 HttpOnly Cookie로 설정
+서버가 응답 header의 Set-Cookie로 Refresh Token 설정
   ↓
-프론트는 Access Token을 tokenMemory에 저장
+브라우저가 Refresh Token을 HttpOnly Cookie로 저장
   ↓
-사용자 정보를 조회해 AuthContext의 user 상태 갱신
+프론트 JS는 응답 body의 Access Token만 꺼내 tokenMemory에 저장
 ```
 
 ### 새로고침 시
@@ -273,7 +273,7 @@ const handleSetShowLogin = useCallback(
 )}
 ```
 
-경로 변경 시에는 메뉴를 닫되, 인증 만료로 열린 로그인 모달은 유지할 수 있도록 처리합니다.
+경로 변경 시에는 사이드 메뉴를 닫되, 인증 만료로 열린 로그인 모달은 유지할 수 있도록 처리합니다.
 
 ```tsx
 useEffect(() => {
@@ -490,6 +490,7 @@ Home은 API 기반 추천 홈이 아니라 정적 랜딩 페이지로 운영합�
 - 카테고리 목록은 공개 조회 가능
 - 응답에는 `id`, `slug`, `name` 포함
 - 프론트 필터/탭은 `slug` 기준으로 동작
+- 화면에 보이는 이름은 바뀌어도, API 요청은 그대로 유지할 수 있기 때문에 사용
 
 ```ts
 type Category = {
@@ -503,8 +504,10 @@ type Category = {
 
 - 공개 조회 가능
 - `category` 또는 `categoryId` 기준 필터 가능
+- category는 slug 기준 필터, categoryId는 DB id 기준 필터
+- 우선 순위는 categoryId
 - 목록 응답은 `thumbnailUrl` 단일 필드 사용
-- `isActive=true` 상품만 노출한다고 가정
+- 사용자에게는 `isActive=true` 상품만 노출한다고 가정
 
 ```ts
 type ProductSummary = {
@@ -545,6 +548,25 @@ type ProductSummary = {
 }
 ```
 
+```ts
+{product.optionGroups.map((group) => (
+  <div key={group.key}>
+    <h3>{group.label}</h3>
+
+    {group.options.map((option) => (
+      <button
+        key={option.value}
+        disabled={option.stock === 0}
+        onClick={() => selectOption(group.key, option.value)}
+      >
+        {option.value}
+        {option.stock === 0 && " 품절"}
+      </button>
+    ))}
+  </div>
+))}
+```
+
 재고가 0이면 선택 불가 처리합니다.
 
 ---
@@ -572,19 +594,25 @@ type ProductSummary = {
 
 ### 옵션 / 재고
 
-```text
-SIZE: M(3), L(0)
-COLOR: black(2)
-```
+상품 옵션은 SIZE, COLOR 같은 옵션 그룹으로 구성하고, 실제 재고는 옵션 조합별로 관리합니다.
 
-- 재고 0이면 품절 처리
-- 프론트는 `optionGroups.options[].stock` 기준으로 선택 가능 여부 판단
+예시:
+
+| 색상 | 사이즈 | 재고 |
+| --- | --- | ---: |
+| black | M | 2 |
+| black | L | 0 |
+| white | M | 1 |
+| white | L | 3 |
+
+프론트에서는 상품 상세 응답의 `optionGroups`를 기준으로 옵션 선택 UI를 구성하고, 각 선택지의 `stock` 값이 0이면 품절로 표시하거나 선택을 비활성화했습니다.
 
 ---
 
 ## 15. Cart 운영 규칙
 
-장바구니는 서버 API가 아니라 프론트 로컬 상태로 관리합니다.
+장바구니는 비로그인 사용자도 사용할 수 있도록 localStorage 기반 로컬 상태로 관리했습니다.  
+상품 담기와 수량 변경은 즉시 반영하고, 실제 주문 생성 시에는 서버가 옵션 조합과 재고를 최종 검증하도록 책임을 분리했습니다.
 
 | 사용자 상태 | localStorage key |
 | --- | --- |
@@ -614,7 +642,7 @@ COLOR: black(2)
 - CartPage는 상품 단위 선택/해제 지원
 - Checkout 진입 시 선택한 라인아이템만 route state로 전달
 - `selectedKeys` / `selectedItems` 기준으로 선택 결제 처리
-
+- selectedKeys = 선택 상태 추적용, selectedItems = 체크아웃 화면 표시/주문 payload 생성용
 ---
 
 ## 16. Checkout 운영 규칙
@@ -677,8 +705,7 @@ POST /orders
 
 - 주문 실패 시 상단 error box 표시
 - 서버 code 기반 UX 메시지 매핑
-- validation 오류는 fieldErrors 표시 가능
-
+- 서버에서 `VALIDATION_ERROR`와 함께 필드별 오류 정보를 내려주는 경우, `fieldErrors`를 입력 필드에 매핑해 사용자가 어떤 값을 수정해야 하는지 바로 확인할 수 있도록 구성
 ---
 
 ## 17. 주문 상태
@@ -738,10 +765,10 @@ POST /orders
 
 다음 항목은 값이 없어도 404가 아니라 빈 값으로 정상 처리합니다.
 
-- faq
-- returns
-- bankAccount
-- shipping
+- faq (자주 묻는 질문)
+- returns  (반품 안내 문구)
+- bankAccount (무통장 입금 계좌 안내)
+- shipping (배송 정책 안내)
 
 ---
 
@@ -771,16 +798,10 @@ POST /orders
 
 ### Profile
 
-`GET /users/me` 기반으로 초기화합니다.
+마이페이지 프로필 수정 폼은 `GET /users/me` 응답값으로 초기화했습니다.  
+응답의 `displayName`, `defaultZip`, `defaultAddress1`, `defaultAddress2`를 폼 상태의 `name`, `zip`, `address1`, `address2`로 매핑했습니다.
 
-필드:
-
-- displayName
-- defaultZip
-- defaultAddress1
-- defaultAddress2
-
-저장 시 `name`으로 전송합니다.
+저장 시에는 API 명세에 맞춰 이름 값을 `name` 필드로 전송하고, 주소 정보는 `address` 객체에 담아 전송했습니다.
 
 ---
 
@@ -797,16 +818,3 @@ API 연동 없이 프론트 코드 내 정적 콘텐츠로 렌더링합니다.
 
 ---
 
-## 22. 다시 봐야 할 부분
-
-- Refresh Token은 HttpOnly Cookie에 저장되고, 프론트 JS가 직접 읽지 못한다는 점
-- Access Token은 메모리에 저장되므로 새로고침 시 사라진다는 점
-- 새로고침 후 `/auth/refresh`가 Cookie 기반으로 Access Token을 다시 발급받는 흐름
-- 일반 API 401에서 자동 refresh/retry를 하지 않는 이유
-- `AUTH_REQUIRED` 이벤트와 `authRequired` 상태의 역할
-- `HeaderUnified`가 `authRequired`를 감지해 LoginModal을 여는 흐름
-- Page / Service / request / httpClient 역할 분리
-- 장바구니를 localStorage로 관리한 이유
-- 옵션 조합을 line key로 만드는 방식
-- Checkout payload가 만들어지는 흐름
-- 관리자 주문 상태 변경 흐름
