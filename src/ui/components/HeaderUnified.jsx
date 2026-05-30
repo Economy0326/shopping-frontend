@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import SideMenu from "ui/components/SideMenu";
 import LoginModal from "ui/components/LoginModal";
 import { useAuth } from "features/auth/context/AuthContext";
 
 export default function HeaderUnified({ showLogo = false }) {
-  const { user, ready, logout } = useAuth();
+  const { user, ready, logout, authRequired, setAuthRequired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -13,9 +13,18 @@ export default function HeaderUnified({ showLogo = false }) {
   const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
-    setShowLogin(false);
     setShowMenu(false);
-  }, [location.pathname]);
+
+    if (!authRequired) {
+      setShowLogin(false);
+    }
+  }, [location.pathname, authRequired]);
+
+  useEffect(() => {
+    if (authRequired) {
+      setShowLogin(true);
+    }
+  }, [authRequired]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -25,6 +34,17 @@ export default function HeaderUnified({ showLogo = false }) {
       document.body.style.overflow = prev;
     };
   }, [showMenu]);
+
+  const handleSetShowLogin = useCallback(
+    (open) => {
+      setShowLogin(open);
+
+      if (!open) {
+        setAuthRequired(false);
+      }
+    },
+    [setAuthRequired]
+  );
 
   const isLoggedIn = !!user;
   const isAdmin = String(user?.role ?? "").toLowerCase() === "admin";
@@ -78,7 +98,7 @@ export default function HeaderUnified({ showLogo = false }) {
                 )}
 
                 {!ready ? null : !isLoggedIn ? (
-                  <button type="button" onClick={() => setShowLogin(true)} className={btn} style={tapNone}>
+                  <button type="button" onClick={() => handleSetShowLogin(true)} className={btn} style={tapNone}>
                     LOGIN
                   </button>
                 ) : (
