@@ -13,7 +13,7 @@ import {
 } from "shared/api/request";
 import { USERS } from "shared/api/endpoints"; // 기본 배송지 저장 endpoint
 import { notify } from "shared/ui/notify"; // 기본 배송지 저장 실패 알림용
-
+import { UsersAPI } from "features/users/api/users.api";
 import { useBottomBarOffset } from "ui/hooks/useBottomBarOffset";
 
 export default function CheckoutPage() {
@@ -205,21 +205,16 @@ export default function CheckoutPage() {
     };
   }, [payItems, form]);
 
-  // 기본 배송지 저장 로직 추가
+  // 기본 배송지 저장 로직
   const saveDefaultAddressIfNeeded = useCallback(async () => {
     if (!user) return;
     if (!saveAsDefault) return;
 
     try {
-      await request(USERS.DEFAULT_ADDR, {
-        method: "PUT",
-        body: {
-          address: {
-            zip: form.zipcode || undefined,
-            address1: form.address1,
-            address2: form.address2,
-          },
-        },
+      await UsersAPI.saveDefaultAddress({
+        zip: form.zipcode || undefined,
+        address1: form.address1,
+        address2: form.address2,
       });
     } catch (e) {
       // 주문 성공을 막지 않고 안내만 표시
