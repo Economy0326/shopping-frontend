@@ -18,38 +18,54 @@ export const OrdersAPI = {
   },
 
   // GET /orders/{id}
-  get(id) {
-    return request(ORDERS.ID(id));
+  get(id, params = {}) {
+    return request(ORDERS.ID(id), { params });
+  },
+
+  // POST /orders/guest/lookup
+  guestLookup({ orderId, phone }) {
+    return request(ORDERS.GUEST_LOOKUP, {
+      method: "POST",
+      body: { orderId, phone },
+    });
   },
 
   // POST /orders/{id}/confirm
-  confirm(id, note) {
+  confirm(id, payload = {}) {
     return request(ORDERS.CONFIRM(id), {
       method: "POST",
       headers: idemHeaders(),
-      body: note ? { note } : undefined,
+      body: payload,
     });
   },
 
   // POST /orders/{id}/cancel-request
-  cancelRequest({ orderId, reason, memo }) {
+  cancelRequest({ orderId, reason, memo, phone }) {
     return request(ORDERS.CANCEL(orderId), {
       method: "POST",
       headers: idemHeaders(),
-      body: { reason, memo: memo ?? "" },
+      body: {
+        reason,
+        memo: memo ?? "",
+        ...(phone ? { phone } : {}),
+      },
     });
   },
 
   // POST /orders/{id}/return-request
-  returnRequest({ orderId, reason, memo }) {
+  returnRequest({ orderId, reason, memo, phone }) {
     return request(ORDERS.RETURN(orderId), {
       method: "POST",
       headers: idemHeaders(),
-      body: { reason, memo: memo ?? "" },
+      body: {
+        reason,
+        memo: memo ?? "",
+        ...(phone ? { phone } : {}),
+      },
     });
   },
 
-  // GET /orders/{id}/tracking (선택)
+  // GET /orders/{id}/tracking
   track(id) {
     return request(ORDERS.TRACK(id));
   },

@@ -22,6 +22,7 @@ export const SYSTEM = { POLICY: (key) => `/system/policies/${key}` };
 export const ORDERS = {
   ROOT: "/orders",
   ID: (id) => `/orders/${id}`,
+  GUEST_LOOKUP: "/orders/guest/lookup",
   CONFIRM: (id) => `/orders/${id}/confirm`,
   CANCEL: (id) => `/orders/${id}/cancel-request`,
   RETURN: (id) => `/orders/${id}/return-request`,

@@ -6,12 +6,10 @@ import { useAuth } from "features/auth/context/AuthContext";
 import { OrdersAPI } from "features/orders/api/orders.api";
 import { SystemAPI } from "shared/api/system.api";
 import {
-  request,
   getApiErrorMessage,
   getApiErrorBody,
   mapCheckoutErrorToUx,
 } from "shared/api/request";
-import { USERS } from "shared/api/endpoints"; // 기본 배송지 저장 endpoint
 import { notify } from "shared/ui/notify"; // 기본 배송지 저장 실패 알림용
 import { UsersAPI } from "features/users/api/users.api";
 import { useBottomBarOffset } from "ui/hooks/useBottomBarOffset";
@@ -23,7 +21,7 @@ export default function CheckoutPage() {
   const bottomOffset = useBottomBarOffset();
 
   const { cart, clearCart, removeItems } = useCart();
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
 
   // 에러 UX 표시용
   const topRef = useRef(null);
@@ -67,6 +65,8 @@ export default function CheckoutPage() {
   // bankAccount 정책(/system/policies/bankAccount)
   const [bankInfo, setBankInfo] = useState(null);
 
+  const isGuestCheckout = ready && !user;
+  
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -282,10 +282,22 @@ export default function CheckoutPage() {
         clearCart();
       }
 
-      // 중복 네비게이션 방지
+      // 주문 상세 페이지로 이동 (비회원은 비회원 주문조회 페이지로)
       if (!didNavigate.current) {
         didNavigate.current = true;
-        navigate(`/order/${newId}`, { state: { justCreated: true }, replace: true });
+
+        if (!user) {
+          sessionStorage.setItem(`guestOrderPhone:${newId}`, form.phone);
+          navigate(`/guest-orders/${newId}`, {
+            state: { justCreated: true },
+            replace: true,
+          });
+        } else {
+          navigate(`/order/${newId}`, {
+            state: { justCreated: true },
+            replace: true,
+          });
+        }
       }
     } catch (err) {
       const body = getApiErrorBody(err);
@@ -319,6 +331,8 @@ export default function CheckoutPage() {
     selectedKeysFromState,
     removeItems,
     clearCart,
+    user,
+    form.phone,
   ]);
 
   // form submit은 submitOrder만 호출
@@ -435,6 +449,23 @@ export default function CheckoutPage() {
             "주문 후 12시간 내 입금이 확인되지 않으면 주문이 자동 취소됩니다."}
         </p>
       </section>
+
+      {isGuestCheckout && (
+        <section className="rounded border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+          <h2 className="font-bold mb-1">비회원 주문 안내</h2>
+
+          <p>
+            비회원 주문은 마이페이지에서 조회할 수 없습니다. 주문 완료 후 표시되는
+            주문번호와 주문 시 입력한 휴대폰 번호로 비회원 주문조회, 취소 요청,
+            반품 신청을 진행할 수 있습니다.
+          </p>
+
+          <p className="mt-2 font-semibold">
+            주문번호를 꼭 저장해 주세요. 주문번호를 잊어버리면 환불/반품 처리가
+            어려울 수 있습니다.
+          </p>
+        </section>
+      )}
 
       {/* 주문서 폼 */}
       <form onSubmit={onSubmit} className="border rounded p-4 grid gap-3">

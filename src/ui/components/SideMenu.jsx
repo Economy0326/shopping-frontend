@@ -7,15 +7,24 @@ export default function SideMenu({ setShowMenu, setShowLoginModal }) {
   const { user, ready, logout } = useAuth();
   const isLoggedIn = !!user;
   const isAdmin = String(user?.role ?? "").toLowerCase() === "admin";
+  
+  const closeMenu = () => {
+    if (typeof setShowMenu === "function") {
+      setShowMenu(false);
+    }
+  };
 
   const go = (to) => {
-    setShowMenu(false);
+    closeMenu();
     nav(to);
   };
 
   const openLogin = () => {
-    setShowMenu(false);
-    if (typeof setShowLoginModal === "function") setShowLoginModal(true);
+    closeMenu();
+
+    if (typeof setShowLoginModal === "function") {
+      setShowLoginModal(true);
+    }
   };
 
   return (
@@ -32,7 +41,7 @@ export default function SideMenu({ setShowMenu, setShowLoginModal }) {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setShowMenu(false)}
+          onClick={closeMenu}
           className="px-2 py-2 -ml-2 text-sm font-bold"
         >
           GET OUT
@@ -52,7 +61,7 @@ export default function SideMenu({ setShowMenu, setShowLoginModal }) {
               type="button"
               onClick={() => {
                 logout();
-                setShowMenu(false);
+                closeMenu();
               }}
               className="text-sm font-extrabold underline"
             >
@@ -78,11 +87,28 @@ export default function SideMenu({ setShowMenu, setShowLoginModal }) {
         </div>
 
         <div className="space-y-1 text-2xl font-semibold">
-          <button type="button" onClick={() => go("/look")} className="block">LOOK</button>
-          <button type="button" onClick={() => go("/qna")} className="block">Q&A</button>
-          <button type="button" onClick={() => go("/mypage")} className="block">MY PAGE</button>
-          {isAdmin && (
-            <button type="button" onClick={() => go("/admin")} className="block">
+          <button onClick={() => go("/look")} className="block">
+            LOOK
+          </button>
+
+          <button onClick={() => go("/qna")} className="block">
+            Q&amp;A
+          </button>
+
+          {ready && !isLoggedIn && (
+            <button onClick={() => go("/guest-orders")} className="block">
+              GUEST ORDER
+            </button>
+          )}
+
+          {ready && isLoggedIn && (
+            <button onClick={() => go("/mypage")} className="block">
+              MY PAGE
+            </button>
+          )}
+
+          {ready && isLoggedIn && isAdmin && (
+            <button onClick={() => go("/admin")} className="block">
               ADMIN
             </button>
           )}

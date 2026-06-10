@@ -3,9 +3,20 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "features/auth/context/AuthContext";
 
-export default function LoginModal({ setShowLoginModal }) {
+export default function LoginModal({ setShowLoginModal, onClose }) {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  const closeModal = useCallback(() => {
+    if (typeof setShowLoginModal === "function") {
+      setShowLoginModal(false);
+      return;
+    }
+
+    if (typeof onClose === "function") {
+      onClose();
+    }
+  }, [setShowLoginModal, onClose]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,10 +24,10 @@ export default function LoginModal({ setShowLoginModal }) {
 
   const closeAndGo = useCallback(
     (to) => {
-      setShowLoginModal(false);
+      closeModal();
       navigate(to);
     },
-    [navigate, setShowLoginModal]
+    [navigate, closeModal]
   );
 
   const onLogin = useCallback(async () => {
@@ -29,11 +40,11 @@ export default function LoginModal({ setShowLoginModal }) {
     setLoading(false);
 
     if (res?.ok) {
-      setShowLoginModal(false);
+      closeModal();
     } else {
       toast.error("로그인 실패");
     }
-  }, [email, password, login, setShowLoginModal]);
+  }, [email, password, login, closeModal]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -43,7 +54,7 @@ export default function LoginModal({ setShowLoginModal }) {
           <button
             type="button"
             className="text-sm font-extrabold uppercase tracking-tight hover:text-gray-200"
-            onClick={() => setShowLoginModal(false)}
+            onClick={closeModal}
           >
             GET OUT
           </button>

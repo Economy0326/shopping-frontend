@@ -37,6 +37,8 @@ import PasswordChangePage from "features/mypage/pages/PasswordChangePage";
 
 // Order detail page
 import OrderDetailPage from "features/orders/pages/OrderDetailPage";
+import GuestOrderLookupPage from "features/orders/pages/GuestOrderLookupPage";
+import GuestOrderDetailPage from "features/orders/pages/GuestOrderDetailPage";
 
 // QnA pages
 import QnaTabs from "features/qna/pages/QnaTabs";
@@ -96,8 +98,12 @@ export default function AppRoutes() {
         <Route path="mypage/*" element={<MyPageLayout />} />
         <Route path="mypage/password" element={<PasswordChangePage />} />
 
-        {/* order detail (Panels link here) */}
+        {/* order detail */}
         <Route path="order/:id" element={<OrderDetailPage />} />
+        
+        {/* guest order */}
+        <Route path="guest-orders" element={<GuestOrderLookupPage />} />
+        <Route path="guest-orders/:id" element={<GuestOrderDetailPage />} />
 
         {/* auth */}
         <Route path="auth/signup" element={<SignupPage />} />

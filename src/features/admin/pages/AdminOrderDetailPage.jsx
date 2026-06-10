@@ -342,15 +342,36 @@ export default function AdminOrderDetailPage() {
         {/* 주문자 */}
         <section className="border rounded-2xl p-4">
           <h2 className="font-bold mb-2">주문자</h2>
-          <div className="text-sm">
-            <div>
-              <span className="text-gray-500">이메일: </span>
-              <b>{order?.buyer?.email ?? "-"}</b>
-            </div>
-            <div>
-              <span className="text-gray-500">이름: </span>
-              <b>{order?.buyer?.name ?? "-"}</b>
-            </div>
+
+          <div className="mb-3">
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                order?.isGuestOrder
+                  ? "bg-orange-100 text-orange-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {order?.isGuestOrder ? "비회원 주문" : "회원 주문"}
+            </span>
+          </div>
+
+          <div className="grid gap-1 text-sm">
+            <p>이름: {order?.buyer?.name ?? "-"}</p>
+            <p>이메일: {order?.buyer?.email ?? "-"}</p>
+            <p>연락처: {order?.buyer?.phone ?? "-"}</p>
+          </div>
+
+          <div className="mt-4 border-t pt-4 grid gap-1 text-sm">
+            <h3 className="font-semibold">수령자 정보</h3>
+            <p>이름: {order?.receiver?.name ?? "-"}</p>
+            <p>연락처: {order?.receiver?.phone ?? "-"}</p>
+            <p>이메일: {order?.receiver?.email ?? "-"}</p>
+            <p>
+              주소: {order?.receiver?.address?.zip ?? ""}{" "}
+              {order?.receiver?.address?.address1 ?? ""}{" "}
+              {order?.receiver?.address?.address2 ?? ""}
+            </p>
+            {order?.receiver?.memo && <p>메모: {order.receiver.memo}</p>}
           </div>
         </section>
 

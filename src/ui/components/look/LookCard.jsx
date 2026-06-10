@@ -2,31 +2,32 @@ import { Link } from "react-router-dom";
 
 export default function LookCard({ product }) {
   const cover =
-    Array.isArray(product.images) && product.images.length
+    product?.thumbnailUrl ||
+    (Array.isArray(product?.images) && typeof product.images[0] === "string"
       ? product.images[0]
-      : "";
+      : null) ||
+    (Array.isArray(product?.images) && product.images[0]?.url
+      ? product.images[0].url
+      : null) ||
+    "/mood/no-image.png";
 
   return (
-    <Link to={`/look/${product.id}`} className="block">
-      <div className="mb-2 rounded-2xl overflow-hidden aspect-[2/3] bg-gray-100">
+    <Link to={`/look/${product.id}`} className="block group">
+      <div className="aspect-[3/4] overflow-hidden bg-gray-100">
         {cover ? (
           <img
             src={cover}
             alt={product.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full grid place-items-center text-xs text-gray-400">
+          <div className="grid h-full place-items-center text-sm text-gray-400">
             No Image
           </div>
         )}
       </div>
 
-      <div className="text-black text-center font-bold text-xl tracking-wide">
-        <p className="truncate">{product.name}</p>
-      </div>
-      {/* LOOK에서는 가격 노출 X (원래 ProductCard도 look 카테고리는 안 보이게 되어 있어요) */}
+      <div className="mt-2 text-sm font-semibold">{product.name}</div>
     </Link>
   );
 }
