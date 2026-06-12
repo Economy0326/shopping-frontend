@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import { PanelShell } from "features/mypage/panels/_shared";
 import { getApiErrorMessage } from "shared/api/request";
 import { printCancellation } from "shared/utils/print";
@@ -10,11 +11,22 @@ function formatWon(n) {
   return v.toLocaleString() + "원";
 }
 
+function getCancelDate(order) {
+  return (
+    order?.canceledAt ||
+    order?.cancelledAt ||
+    order?.cancelRequestedAt ||
+    order?.updatedAt ||
+    order?.createdAt ||
+    "-"
+  );
+}
+
 function StatusBadge({ status }) {
-  // 여기 status는 주문 status(CANCELED 등) 기준으로 간단히 표시
   const map = {
-    [OrderStatus.CANCELED]: "취소",
+    [OrderStatus.CANCELED]: "취소 완료",
   };
+
   const color =
     {
       [OrderStatus.CANCELED]: "bg-rose-100 text-rose-800",
@@ -31,6 +43,7 @@ function StatusBadge({ status }) {
 
 function CancellationCard({ order, onPrint }) {
   const rep = order.representativeItem || {};
+
   return (
     <article className="w-full border rounded-2xl bg-white shadow-sm p-4 md:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -49,16 +62,22 @@ function CancellationCard({ order, onPrint }) {
         <div className="flex flex-col justify-center gap-1 min-w-0">
           <div className="text-base md:text-lg font-medium truncate" title={rep.name}>
             {rep.name || "상품명"}
+
             {order.itemsCount > 1 && (
               <span className="ml-1 text-sm text-gray-500">
                 외 {order.itemsCount - 1}개
               </span>
             )}
           </div>
+
           <div className="text-sm font-semibold">
             환불/취소금액: {formatWon(order?.amounts?.grandTotal)}
           </div>
-          <div className="text-xs text-gray-500">취소 일자: {order.createdAt}</div>
+
+          <div className="text-xs text-gray-500">
+            취소 일자: {getCancelDate(order)}
+          </div>
+
           <div className="mt-1">
             <StatusBadge status={order.status} />
           </div>
@@ -66,6 +85,7 @@ function CancellationCard({ order, onPrint }) {
 
         <div className="sm:ml-auto flex items-center">
           <button
+            type="button"
             onClick={() => onPrint?.(order)}
             className="rounded-xl px-3 py-2 text-xs md:text-sm border hover:bg-gray-50"
           >
@@ -89,18 +109,23 @@ export default function CancellationsPanel() {
     try {
       setLoading(true);
 
-      // /orders status 필터 지원
       const res = await OrdersAPI.list({
         page,
         size: meta.size || 10,
         sort: "createdAt,desc",
-        status: OrderStatus.CANCELED, 
+        status: OrderStatus.CANCELED,
       });
 
-      const rows = res?.data ?? [];
+      const rows = Array.isArray(res?.data) ? res.data : [];
+
+      // 백엔드 필터가 혹시 안 먹어도 프론트에서 한 번 더 방어
+      const canceledRows = rows.filter(
+        (order) => order?.status === OrderStatus.CANCELED,
+      );
+
       const m = res?.meta ?? { page, size: meta.size || 10, total: 0 };
 
-      setList((prev) => (page === 1 ? rows : [...prev, ...rows]));
+      setList((prev) => (page === 1 ? canceledRows : [...prev, ...canceledRows]));
       setMeta(m);
       setErr("");
     } catch (e) {
@@ -112,7 +137,7 @@ export default function CancellationsPanel() {
 
   useEffect(() => {
     load(1);
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hasNext = useMemo(() => meta.page * meta.size < meta.total, [meta]);
@@ -144,6 +169,7 @@ export default function CancellationsPanel() {
 
         {hasNext && (
           <button
+            type="button"
             onClick={() => load((meta.page || 1) + 1)}
             className="mt-4 w-full py-2 border"
           >

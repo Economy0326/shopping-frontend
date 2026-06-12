@@ -12,7 +12,7 @@ export const OrdersAPI = {
     });
   },
 
-  // GET /orders (로그인 필요)
+  // GET /orders - 로그인 필요
   list(params = {}) {
     return request(ORDERS.ROOT, { params });
   },
@@ -32,9 +32,12 @@ export const OrdersAPI = {
 
   // POST /orders/{id}/confirm
   confirm(id, payload = {}) {
+    const phone = payload?.phone;
+
     return request(ORDERS.CONFIRM(id), {
       method: "POST",
       headers: idemHeaders(),
+      params: phone ? { phone } : undefined,
       body: payload,
     });
   },
@@ -44,6 +47,7 @@ export const OrdersAPI = {
     return request(ORDERS.CANCEL(orderId), {
       method: "POST",
       headers: idemHeaders(),
+      params: phone ? { phone } : undefined,
       body: {
         reason,
         memo: memo ?? "",
@@ -57,6 +61,7 @@ export const OrdersAPI = {
     return request(ORDERS.RETURN(orderId), {
       method: "POST",
       headers: idemHeaders(),
+      params: phone ? { phone } : undefined,
       body: {
         reason,
         memo: memo ?? "",
