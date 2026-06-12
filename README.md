@@ -169,15 +169,15 @@ API endpoint, JSON 응답 형식, 인증 방식, 주문 payload가 명확하지 
 ```mermaid
 flowchart TD
   subgraph Before
-    A1[Page / Component] --> B1[Axios 직접 호출]
-    B1 --> C1[Server API]
+    A1["Page / Component"] --> B1["Axios 직접 호출"]
+    B1 --> C1["Server API"]
   end
 
   subgraph After
-    A2[Page / Component] --> B2[Service]
-    B2 --> C2[request]
-    C2 --> D2[httpClient]
-    D2 --> E2[Server API]
+    A2["Page / Component"] --> B2["Service"]
+    B2 --> C2["request"]
+    C2 --> D2["httpClient"]
+    D2 --> E2["Server API"]
   end
 ```
 
@@ -216,16 +216,16 @@ Access Token 저장 방식으로 `localStorage`와 메모리 저장 방식을 �
 
 ```mermaid
 sequenceDiagram
-  participant UI as Page / Component
-  participant API as httpClient
-  participant Auth as AuthContext
-  participant Modal as LoginModal
+  participant UI as "Page / Component"
+  participant API as "httpClient"
+  participant Auth as "AuthContext"
+  participant Modal as "LoginModal"
 
-  UI->>API: API 요청
-  API-->>API: 401 응답 감지
-  API-->>Auth: AUTH_REQUIRED 이벤트 발생
-  Auth-->>Modal: authRequired = true
-  Modal-->>UI: 로그인 모달 표시
+  UI->>API: "API 요청"
+  API-->>API: "401 응답 감지"
+  API-->>Auth: "AUTH_REQUIRED 이벤트 발생"
+  Auth-->>Modal: "authRequired = true"
+  Modal-->>UI: "로그인 모달 표시"
 ```
 
 로그인 성공 시에는 사용자 정보를 다시 불러오고, `authRequired` 상태를 `false`로 초기화합니다.
@@ -284,19 +284,19 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  A[상품 선택] --> B[장바구니]
-  B --> C[체크아웃 진입]
-  C --> D{로그인 상태}
+  A["상품 선택"] --> B["장바구니"]
+  B --> C["체크아웃 진입"]
+  C --> D{"로그인 상태"}
 
-  D -- 로그인 사용자 --> E[계정 정보 기준 주문]
-  D -- 비로그인 사용자 --> F[주문자 / 배송 정보 입력]
+  D -->|로그인 사용자| E["계정 정보 기준 주문"]
+  D -->|비로그인 사용자| F["주문자 / 배송 정보 입력"]
 
-  E --> G[주문 payload 생성]
+  E --> G["주문 payload 생성"]
   F --> G
 
-  G --> H[주문 생성 요청]
-  H --> I[서버에서 옵션 조합 / 재고 검증]
-  I --> J[주문 완료]
+  G --> H["주문 생성 요청"]
+  H --> I["서버에서 옵션 조합 / 재고 검증"]
+  I --> J["주문 완료"]
 ```
 
 프론트엔드는 사용자가 선택한 상품, 옵션, 수량을 주문 요청 형태로 정리하고, 서버는 실제 옵션 조합과 재고 가능 여부를 검증하는 역할로 나누었습니다.
@@ -316,11 +316,11 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  A[상품 등록 / 수정] --> B[주문 확인]
-  B --> C[입금 확인]
-  C --> D[배송 처리]
-  D --> E[반품 요청]
-  E --> F[반품 승인 / 거절]
+  A["상품 등록 / 수정"] --> B["주문 확인"]
+  B --> C["입금 확인"]
+  C --> D["배송 처리"]
+  D --> E["반품 요청"]
+  E --> F["반품 승인 / 거절"]
 ```
 
 관리자 화면은 단순 CRUD보다 운영자가 현재 상태를 빠르게 파악하고 처리할 수 있는 흐름이 중요하다고 판단했습니다.
