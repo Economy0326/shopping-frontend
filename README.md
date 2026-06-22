@@ -363,41 +363,42 @@ flowchart LR
 src
 ├─ app
 │
-├─ shared
-│  └─ api
-│     ├─ authEvents
-│     ├─ httpClient
-│     ├─ request
-│     └─ tokenMemory
-│
-├─ context
-│
 ├─ features
+│  ├─ admin
 │  ├─ auth
-│  ├─ catalog
+│  │  ├─ api
+│  │  ├─ context
+│  │  └─ pages
 │  ├─ cart
-│  ├─ checkout
+│  │  ├─ context
+│  │  └─ pages
+│  │     ├─ CartPage.jsx
+│  │     └─ CheckoutPage.jsx
+│  ├─ catalog
+│  ├─ home
+│  ├─ legal
 │  ├─ mypage
+│  ├─ orders
+│  │  ├─ api
+│  │  ├─ context
+│  │  └─ pages
 │  ├─ qna
-│  └─ admin
+│  ├─ returns
+│  │  └─ api
+│  └─ users
+│     └─ api
+│
+├─ shared
+│  ├─ api
+│  ├─ config
+│  ├─ constants
+│  ├─ ui
+│  └─ utils
 │
 └─ ui
-   └─ components
-      ├─ HeaderUnified
-      └─ LoginModal
-```
-
-```text
-docs
-└─ screens
-   ├─ product-list.png
-   ├─ cart.png
-   ├─ checkout.png
-   ├─ guest-checkout.png
-   ├─ admin-orders.png
-   ├─ admin-returns.png
-   ├─ login-modal.png
-   └─ admin-product-form.png
+   ├─ components
+   ├─ hooks
+   └─ layout
 ```
 
 ---
@@ -405,11 +406,11 @@ docs
 ## 🔧 환경 변수
 
 ```env
-REACT_APP_API_BASE=https://shopping-backend-2yx6.onrender.com
+REACT_APP_API_BASE=http://localhost:8080
 REACT_APP_API_PREFIX=/api/v1
-```
 
-운영 환경에서는 `localhost` API 주소를 사용하지 않습니다.
+운영 환경에서는 REACT_APP_API_BASE를 배포된 백엔드 API 주소로 변경합니다.
+```
 
 ---
 
