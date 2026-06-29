@@ -20,8 +20,6 @@
 | Auth | JWT Access Token + Refresh Token Cookie |
 | State | Context API, localStorage |
 | UI | React Icons, React Toastify |
-| Test | React Testing Library |
-| Performance | web-vitals |
 | Build | React Scripts |
 
 ---
@@ -35,7 +33,7 @@
 - 상품 상세 조회
 - 옵션 선택
 - 장바구니
-- 선택 결제 / 전체 결제
+- 선택 주문 / 전체 주문
 - 무통장 입금 기반 주문
 - 회원 주문 / 비회원 주문
 - 체크아웃
@@ -57,10 +55,9 @@
 - 상품 등록 / 수정 / 삭제
 - 이미지 업로드
 - 주문 목록 조회
-- 무통장 입금 확인
 - 입금 확인
 - 배송 처리
-- 배송 상태 변경
+- 배송 상태 관리
 - 주문 상태 관리
 - 반품 승인 / 거절
 - 공지 / FAQ 관리
