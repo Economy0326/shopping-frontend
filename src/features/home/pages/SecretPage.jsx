@@ -8,7 +8,7 @@ function SecretPage() {
       <div className="w-full min-h-[calc(100dvh-320px)] flex items-center justify-center px-4">
         <img
           src="/mood/brand-write.png"
-          alt="비밀"
+          alt="브랜드 이스터에그"
           className="w-full max-w-3xl object-contain"
         />
       </div>
@@ -41,10 +41,10 @@ function SecretPage() {
 
           <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-8 px-2">
             <p className="text-3xl sm:text-6xl font-bold text-center leading-tight">
-              이걸 찾네 ㅋㅋ
+              숨겨진 페이지를 발견했어요
             </p>
             <p className="text-lg sm:text-3xl font-bold text-center leading-tight">
-              해킹당하신 거 아니에요!
+              브랜드 무드를 담은 작은 이스터에그입니다
             </p>
           </div>
         </div>
